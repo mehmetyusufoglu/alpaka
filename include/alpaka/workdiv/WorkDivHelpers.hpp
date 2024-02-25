@@ -320,37 +320,12 @@ namespace alpaka
         using V [[maybe_unused]] = Vec<Dim<TGridElemExtent>, Idx<TGridElemExtent>>;
         ALPAKA_UNREACHABLE(WorkDivMembers<Dim<TGridElemExtent>, Idx<TGridElemExtent>>{V{}, V{}, V{}});
     }
-    template<std::size_t N, class T>
-    constexpr std::size_t countof(T(&)[N]) { return N; }
 
-    template<class Array, std::size_t N = std::tuple_size<Array>::value>
-    constexpr std::size_t countof(Array&) { return N; }
+    // template<std::size_t N, class T>
+    // constexpr std::size_t countof(T(&)[N]) { return N; }
 
-    template <class T>
-    struct what_is;
-
-    template<typename T>
-    using element_type_t = std::remove_reference_t<decltype(*std::begin(std::declval<T&>()))>;
-    //! \tparam TDim The dimensionality of the accelerator device properties.
-       //! \tparam TIdx The idx type of the accelerator device properties.
-       //! \return Returns the work division; namely the WorkDivMembers instance.
-        template<typename TArray>
-        auto createWorkDiv(
-                TArray const gridBlockExtent,
-                TArray const blockThreadExtent,
-                TArray const elemExtent) -> alpaka::WorkDivMembers<
-        alpaka::DimInt<std::tuple_size<decltype(gridBlockExtent)>::value>,
-        alpaka::element_type_t<TArray>>
-                 {
-                         what_is<alpaka::element_type_t<TArray>>   t1;
-                                        what_is<typename std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value> t2;
-                                        static_assert( std::tuple_size<decltype(gridBlockExtent)>::value == 2,
-                                                       "Size must be 2" );
-                                       // std::assert()
-            return alpaka::WorkDivMembers(alpaka::arrayToVec(gridBlockExtent)
-                                                              , alpaka::arrayToVec(blockThreadExtent)
-                                                              , alpaka::arrayToVec(elemExtent));
-        }
+    // template<class Array, std::size_t N = std::tuple_size<Array>::value>
+    // constexpr std::size_t countof(Array&) { return N; }
 
 
     //! \tparam TDim The dimensionality of the accelerator device properties.

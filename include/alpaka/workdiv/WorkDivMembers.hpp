@@ -62,6 +62,12 @@ namespace alpaka
         array<T, N>& _data;
     };
 
+    template<class T>
+    struct what_is;
+
+    template<typename T>
+    using element_type_t = std::remove_reference_t<decltype(*std::begin(std::declval<T&>()))>;
+
     //! A basic class holding the work division as grid block extent, block thread and thread element extent.
     template<typename TDim, typename TIdx>
     class WorkDivMembers : public concepts::Implements<ConceptWorkDiv, WorkDivMembers<TDim, TIdx>>
@@ -71,17 +77,17 @@ namespace alpaka
 
         //! Accepts different alpaka vector types and takes the last TDim number of items. TDim is explicitly specified
         //! at the constructor call.
-        ALPAKA_NO_HOST_ACC_WARNING
-        template<typename TGridBlockExtent, typename TBlockThreadExtent, typename TThreadElemExtent>
-        ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
-            TGridBlockExtent const& gridBlockExtent = TGridBlockExtent(),
-            TBlockThreadExtent const& blockThreadExtent = TBlockThreadExtent(),
-            TThreadElemExtent const& threadElemExtent = TThreadElemExtent())
-            : m_gridBlockExtent(getExtentVecEnd<TDim>(gridBlockExtent))
-            , m_blockThreadExtent(getExtentVecEnd<TDim>(blockThreadExtent))
-            , m_threadElemExtent(getExtentVecEnd<TDim>(threadElemExtent))
-        {
-        }
+        // ALPAKA_NO_HOST_ACC_WARNING
+        // template<typename TGridBlockExtent, typename TBlockThreadExtent, typename TThreadElemExtent>
+        // ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
+        //     TGridBlockExtent const& gridBlockExtent = TGridBlockExtent(),
+        //     TBlockThreadExtent const& blockThreadExtent = TBlockThreadExtent(),
+        //     TThreadElemExtent const& threadElemExtent = TThreadElemExtent())
+        //     : m_gridBlockExtent(getExtentVecEnd<TDim>(gridBlockExtent))
+        //     , m_blockThreadExtent(getExtentVecEnd<TDim>(blockThreadExtent))
+        //     , m_threadElemExtent(getExtentVecEnd<TDim>(threadElemExtent))
+        // {
+        // }
 
         //! Accepts single specific type and is called without explicit template parameters.
         ALPAKA_NO_HOST_ACC_WARNING
@@ -93,6 +99,30 @@ namespace alpaka
             , m_blockThreadExtent(blockThreadExtent)
             , m_threadElemExtent(elemExtent)
         {
+        }
+
+        //! \tparam TDim The dimensionality of the accelerator device properties.
+        //! \tparam TIdx The idx type of the accelerator device properties.
+        //! \return Returns the work division; namely the WorkDivMembers instance.
+        template<class T, size_t N>
+        ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
+            std::array<T, N> const gridBlockExtent,
+            std::array<T, N> const blockThreadExtent,
+            std::array<T, N> const elemExtent)
+            : alpaka::WorkDivMembers<alpaka::DimInt<N>, T>(
+                alpaka::arrayToVec(gridBlockExtent),
+                alpaka::arrayToVec(blockThreadExtent),
+                alpaka::arrayToVec(elemExtent))
+        {
+            //            what_is<alpaka::element_type_t<TArray<T,N>>>   t1;
+            //                           what_is<typename std::tuple_size<typename
+            //                           std::result_of<decltype(gridBlockExtent)&()>::type>::value> t2; static_assert(
+            //                           std::tuple_size<decltype(gridBlockExtent)>::value == 2,
+            //                                          "Size must be 2" );
+            //                          // std::assert()
+            // alpaka::WorkDivMembers(alpaka::arrayToVec<T,N>(gridBlockExtent)
+            //                                                 , alpaka::arrayToVec<T,N>(blockThreadExtent)
+            //                                                 , alpaka::arrayToVec<T,N>(elemExtent));
         }
 
         // ALPAKA_NO_HOST_ACC_WARNING
@@ -164,6 +194,14 @@ namespace alpaka
         alpaka::Vec<TDim, TIdx> const& gridBlockExtent,
         alpaka::Vec<TDim, TIdx> const& blockThreadExtent,
         alpaka::Vec<TDim, TIdx> const& elemExtent) -> WorkDivMembers<TDim, TIdx>;
+
+    ALPAKA_NO_HOST_ACC_WARNING
+
+    template<typename T, size_t N>
+    ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
+        std::array<T, N> const gridBlockExtent,
+        std::array<T, N> const blockThreadExtent,
+        std::array<T, N> const elemExtent) -> WorkDivMembers<alpaka::DimInt<N>, T>;
 
     namespace trait
     {
