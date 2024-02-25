@@ -14,6 +14,54 @@
 
 namespace alpaka
 {
+    using std::array;
+    using std::vector;
+
+    template<typename Container>
+    struct container_helper; // undefined
+
+    template<typename T>
+    struct container_helper<vector<T>>
+    {
+        explicit container_helper(vector<T>& data) : _data(data)
+        {
+        }
+
+        T* get_data()
+        {
+            return &_data[0];
+        }
+
+        size_t get_size()
+        {
+            return _data.size();
+        }
+
+    private:
+        vector<T>& _data;
+    };
+
+    template<typename T, size_t N>
+    struct container_helper<array<T, N>>
+    {
+        explicit container_helper(array<T, N>& data) : _data(data)
+        {
+        }
+
+        T* get_data()
+        {
+            return &_data[0];
+        }
+
+        size_t get_size()
+        {
+            return N;
+        }
+
+    private:
+        array<T, N>& _data;
+    };
+
     //! A basic class holding the work division as grid block extent, block thread and thread element extent.
     template<typename TDim, typename TIdx>
     class WorkDivMembers : public concepts::Implements<ConceptWorkDiv, WorkDivMembers<TDim, TIdx>>
@@ -46,6 +94,18 @@ namespace alpaka
             , m_threadElemExtent(elemExtent)
         {
         }
+
+        // ALPAKA_NO_HOST_ACC_WARNING
+        // template<typename T, size_t N>
+        // ALPAKA_FN_HOST_ACC explicit  WorkDivMembers(
+        //     std::array<T,N> const& gridBlockExtent,
+        //     std::array<T,N> const& blockThreadExtent,
+        //     std::array<T,N> const& elemExtent)
+        //     : WorkDivMembers{alpaka::arrayToVec<T,N>(gridBlockExtent)
+        //     , alpaka::arrayToVec<T,N>(blockThreadExtent)
+        //     , alpaka::arrayToVec<T,N>(elemExtent)}
+        // {
+        // }
 
         ALPAKA_NO_HOST_ACC_WARNING
         ALPAKA_FN_HOST_ACC WorkDivMembers(WorkDivMembers const& other)

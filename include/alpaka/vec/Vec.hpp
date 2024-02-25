@@ -656,6 +656,24 @@ namespace alpaka
         return r;
     }
 
+    //! Converts std::array to Vec
+    template<typename TVal, size_t N>
+    ALPAKA_FN_HOST_ACC constexpr auto arrayToVec(std::array<TVal, N> const& a) -> Vec<DimInt<N>, TVal>
+    {
+        alpaka::Vec<DimInt<N>, TVal> v{};
+#if BOOST_COMP_NVCC && BOOST_COMP_NVCC < BOOST_VERSION_NUMBER(11, 3, 0)
+        if(DimInt<N>::value > 0)
+#else
+        if constexpr(DimInt<N>::value > 0)
+#endif
+        {
+            for(unsigned i = 0; i < DimInt<N>::value; i++)
+                v[i] = a[i];
+        }
+        return v;
+    }
+
+
     namespace trait
     {
         //! The Vec dimension get trait specialization.
@@ -694,6 +712,7 @@ namespace alpaka
                 ALPAKA_UNREACHABLE({});
             }
         };
+
 
         template<typename TValNew, typename TDim, typename TVal>
         struct CastVec<TValNew, Vec<TDim, TVal>>
