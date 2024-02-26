@@ -656,7 +656,9 @@ namespace alpaka
         return r;
     }
 
-    //! Converts std::array to Vec
+    //! \brief Converts std::array to alpaka Vec
+    //! \tparam TVal is the element type of the array
+    //! \tparam N is the size of the array
     template<typename TVal, size_t N>
     ALPAKA_FN_HOST_ACC constexpr auto arrayToVec(std::array<TVal, N> const& a) -> Vec<DimInt<N>, TVal>
     {
@@ -672,7 +674,6 @@ namespace alpaka
         }
         return v;
     }
-
 
     namespace trait
     {
@@ -712,7 +713,6 @@ namespace alpaka
                 ALPAKA_UNREACHABLE({});
             }
         };
-
 
         template<typename TValNew, typename TDim, typename TVal>
         struct CastVec<TValNew, Vec<TDim, TVal>>

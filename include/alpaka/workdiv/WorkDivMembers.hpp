@@ -35,7 +35,7 @@ namespace alpaka
         {
         }
 
-        //! Accepts single specific type and is called without explicit template parameters.
+        //! \brief Accepts single specific type and is called without explicit template parameters.
         ALPAKA_NO_HOST_ACC_WARNING
         ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
             alpaka::Vec<TDim, TIdx> const& gridBlockExtent,
@@ -47,9 +47,9 @@ namespace alpaka
         {
         }
 
-        //! \tparam TDim The dimensionality of the accelerator device properties.
-        //! \tparam TIdx The idx type of the accelerator device properties.
-        //! \return Returns the work division; namely the WorkDivMembers instance.
+        //! \brief Accepts single specific type and is called without explicit template parameters.
+        //! \tparam T is the element type of the array
+        //! \tparam N is the size of the array
         template<class T, size_t N>
         ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
             std::array<T, N> const gridBlockExtent,
@@ -59,29 +59,6 @@ namespace alpaka
                 alpaka::arrayToVec(gridBlockExtent),
                 alpaka::arrayToVec(blockThreadExtent),
                 alpaka::arrayToVec(elemExtent))
-        {
-        }
-
-        //! \tparam TDim The dimensionality of the accelerator device properties.
-        //! \tparam TIdx The idx type of the accelerator device properties.
-        //! \return Returns the work division; namely the WorkDivMembers instance.
-        template<class T>
-        ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
-            std::initializer_list<T> const gridBlockExtent,
-            std::initializer_list<T> const blockThreadExtent,
-            std::initializer_list<T> const elemExtent)
-            : alpaka::WorkDivMembers<
-                alpaka::DimInt<std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>,
-                T>(
-                alpaka::
-                    arrayToVec<T, std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(
-                        gridBlockExtent),
-                alpaka::
-                    arrayToVec<T, std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(
-                        blockThreadExtent),
-                alpaka::
-                    arrayToVec<T, std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(
-                        elemExtent))
         {
         }
 
@@ -143,11 +120,12 @@ namespace alpaka
         alpaka::Vec<TDim, TIdx> const& blockThreadExtent,
         alpaka::Vec<TDim, TIdx> const& elemExtent) -> WorkDivMembers<TDim, TIdx>;
 
+    //! Deduction guide for the constructor which can be called without explicit template type parameters
+    //! \tparam T is the element type of the array
+    //! \tparam N is the size of the array
     ALPAKA_NO_HOST_ACC_WARNING
-
-     //! Deduction guide for the constructor which can be called without explicit template type parameters
     template<typename T, size_t N>
-    ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
+    ALPAKA_FN_HOST_ACC WorkDivMembers(
         std::array<T, N> const gridBlockExtent,
         std::array<T, N> const blockThreadExtent,
         std::array<T, N> const elemExtent) -> WorkDivMembers<alpaka::DimInt<N>, T>;
