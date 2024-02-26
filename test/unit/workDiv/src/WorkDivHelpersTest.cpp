@@ -159,7 +159,7 @@ TEMPLATE_LIST_TEST_CASE("WorkDivMembers", "[workDiv]", alpaka::test::TestAccs)
     // change blocks per grid, assign zero to an element
     blocksPerGrid3D = Vec3D{3u, 3u, 0u};
     ref3D = alpaka::WorkDivMembers<Dim3D, Idx>{blocksPerGrid3D, threadsPerBlock3D, elementsPerThread3D};
-    // call without explicit template parameter types
+    // call WorkDivMembers without explicit class template types
     workDiv3D = alpaka::WorkDivMembers(blocksPerGrid3D, threadsPerBlock3D, elementsPerThread3D);
     CHECK(workDiv3D == ref3D);
 
@@ -174,11 +174,18 @@ TEMPLATE_LIST_TEST_CASE("WorkDivMembers", "[workDiv]", alpaka::test::TestAccs)
     auto const workDiv2D = alpaka::WorkDivMembers(blocksPerGrid2D, threadsPerBlock2D, elementsPerThread2D);
     CHECK(workDiv2D == ref2D);
 
-    // Test using different input types, reduced to given explicit template parameter type
+    // Test using different input types, reduced to given explicit class template types
     auto ref2DimUsingMixed
         = alpaka::WorkDivMembers<Dim2D, Idx>{blocksPerGrid2D, threadsPerBlock3D, elementsPerThread3D};
     CHECK(workDiv2D == ref2DimUsingMixed);
 
     ref2DimUsingMixed = alpaka::WorkDivMembers<Dim2D, Idx>{blocksPerGrid2D, threadsPerBlock3D, elementsPerThread2D};
     CHECK(workDiv2D == ref2DimUsingMixed);
+
+    // Test WorkDivMembers using std:array arguments and without explicit class template types
+    auto ara = std::array<size_t, 2u>{1u, 1u};
+    auto arb = std::array<size_t, 2u>{2u, 2u};
+    auto arc = std::array<size_t, 2u>{1u, 1u};
+    auto const ref2DimUsingStdArr = alpaka::WorkDivMembers{ara, arb, arc};
+    CHECK(workDiv2D == ref2DimUsingStdArr);
 }
