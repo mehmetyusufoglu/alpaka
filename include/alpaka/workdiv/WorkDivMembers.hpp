@@ -14,59 +14,7 @@
 
 namespace alpaka
 {
-    using std::array;
-    using std::vector;
 
-    template<typename Container>
-    struct container_helper; // undefined
-
-    template<typename T>
-    struct container_helper<vector<T>>
-    {
-        explicit container_helper(vector<T>& data) : _data(data)
-        {
-        }
-
-        T* get_data()
-        {
-            return &_data[0];
-        }
-
-        size_t get_size()
-        {
-            return _data.size();
-        }
-
-    private:
-        vector<T>& _data;
-    };
-
-    template<typename T, size_t N>
-    struct container_helper<array<T, N>>
-    {
-        explicit container_helper(array<T, N>& data) : _data(data)
-        {
-        }
-
-        T* get_data()
-        {
-            return &_data[0];
-        }
-
-        size_t get_size()
-        {
-            return N;
-        }
-
-    private:
-        array<T, N>& _data;
-    };
-
-    template<class T>
-    struct what_is;
-
-    template<typename T>
-    using element_type_t = std::remove_reference_t<decltype(*std::begin(std::declval<T&>()))>;
 
     //! A basic class holding the work division as grid block extent, block thread and thread element extent.
     template<typename TDim, typename TIdx>
@@ -114,15 +62,6 @@ namespace alpaka
                 alpaka::arrayToVec(blockThreadExtent),
                 alpaka::arrayToVec(elemExtent))
         {
-            //            what_is<alpaka::element_type_t<TArray<T,N>>>   t1;
-            //                           what_is<typename std::tuple_size<typename
-            //                           std::result_of<decltype(gridBlockExtent)&()>::type>::value> t2; static_assert(
-            //                           std::tuple_size<decltype(gridBlockExtent)>::value == 2,
-            //                                          "Size must be 2" );
-            //                          // std::assert()
-            // alpaka::WorkDivMembers(alpaka::arrayToVec<T,N>(gridBlockExtent)
-            //                                                 , alpaka::arrayToVec<T,N>(blockThreadExtent)
-            //                                                 , alpaka::arrayToVec<T,N>(elemExtent));
         }
 
         //! \tparam TDim The dimensionality of the accelerator device properties.
@@ -133,34 +72,20 @@ namespace alpaka
             std::initializer_list<T> const gridBlockExtent,
             std::initializer_list<T> const blockThreadExtent,
             std::initializer_list<T> const elemExtent)
-            : alpaka::WorkDivMembers<alpaka::DimInt<std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>, T>(
-                alpaka::arrayToVec<T,std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(gridBlockExtent),
-                alpaka::arrayToVec<T,std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(blockThreadExtent),
-                alpaka::arrayToVec<T,std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(elemExtent))
+            : alpaka::WorkDivMembers<
+                alpaka::DimInt<std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>,
+                T>(
+                alpaka::
+                    arrayToVec<T, std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(
+                        gridBlockExtent),
+                alpaka::
+                    arrayToVec<T, std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(
+                        blockThreadExtent),
+                alpaka::
+                    arrayToVec<T, std::tuple_size<typename std::result_of<decltype(gridBlockExtent)&()>::type>::value>(
+                        elemExtent))
         {
-            //            what_is<alpaka::element_type_t<TArray<T,N>>>   t1;
-            //                           what_is<typename std::tuple_size<typename
-            //                           std::result_of<decltype(gridBlockExtent)&()>::type>::value> t2; static_assert(
-            //                           std::tuple_size<decltype(gridBlockExtent)>::value == 2,
-            //                                          "Size must be 2" );
-            //                          // std::assert()
-            // alpaka::WorkDivMembers(alpaka::arrayToVec<T,N>(gridBlockExtent)
-            //                                                 , alpaka::arrayToVec<T,N>(blockThreadExtent)
-            //                                                 , alpaka::arrayToVec<T,N>(elemExtent));
         }
-
-
-        // ALPAKA_NO_HOST_ACC_WARNING
-        // template<typename T, size_t N>
-        // ALPAKA_FN_HOST_ACC explicit  WorkDivMembers(
-        //     std::array<T,N> const& gridBlockExtent,
-        //     std::array<T,N> const& blockThreadExtent,
-        //     std::array<T,N> const& elemExtent)
-        //     : WorkDivMembers{alpaka::arrayToVec<T,N>(gridBlockExtent)
-        //     , alpaka::arrayToVec<T,N>(blockThreadExtent)
-        //     , alpaka::arrayToVec<T,N>(elemExtent)}
-        // {
-        // }
 
         ALPAKA_NO_HOST_ACC_WARNING
         ALPAKA_FN_HOST_ACC WorkDivMembers(WorkDivMembers const& other)
@@ -227,14 +152,6 @@ namespace alpaka
         std::array<T, N> const gridBlockExtent,
         std::array<T, N> const blockThreadExtent,
         std::array<T, N> const elemExtent) -> WorkDivMembers<alpaka::DimInt<N>, T>;
-
-    template<class T>
-    ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
-                std::initializer_list<T> const gridBlockExtent,
-                std::initializer_list<T> const blockThreadExtent,
-                std::initializer_list<T> const elemExtent)
-    -> alpaka::WorkDivMembers<alpaka::DimInt<std::tuple_size<decltype(gridBlockExtent)>::value>, T>;
-
 
     namespace trait
     {
