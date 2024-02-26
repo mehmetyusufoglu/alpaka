@@ -197,6 +197,6 @@ TEMPLATE_LIST_TEST_CASE("WorkDivMembers", "[workDiv]", alpaka::test::TestAccs)
     auto const ref2DimUsingStdArr = alpaka::WorkDivMembers{ara, arb, arc};
     CHECK(workDiv2D == ref2DimUsingStdArr);
 
-    // auto const ref2DimUsingInitList = alpaka::WorkDivMembers{{1u, 1u}, {2u, 2u}, {1u, 1u}};
-    // CHECK(workDiv2D == ref2DimUsingInitList);
+     auto const ref2DimUsingInitList = alpaka::WorkDivMembers{{1u, 1u}, {2u, 2u}, {1u, 1u}};
+     CHECK(workDiv2D == ref2DimUsingInitList);
 }
