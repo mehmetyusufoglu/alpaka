@@ -321,13 +321,6 @@ namespace alpaka
         ALPAKA_UNREACHABLE(WorkDivMembers<Dim<TGridElemExtent>, Idx<TGridElemExtent>>{V{}, V{}, V{}});
     }
 
-    // template<std::size_t N, class T>
-    // constexpr std::size_t countof(T(&)[N]) { return N; }
-
-    // template<class Array, std::size_t N = std::tuple_size<Array>::value>
-    // constexpr std::size_t countof(Array&) { return N; }
-
-
     //! \tparam TDim The dimensionality of the accelerator device properties.
     //! \tparam TIdx The idx type of the accelerator device properties.
     //! \tparam TWorkDiv The type of the work division.

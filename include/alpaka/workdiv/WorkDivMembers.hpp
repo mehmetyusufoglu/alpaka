@@ -14,8 +14,6 @@
 
 namespace alpaka
 {
-
-
     //! A basic class holding the work division as grid block extent, block thread and thread element extent.
     template<typename TDim, typename TIdx>
     class WorkDivMembers : public concepts::Implements<ConceptWorkDiv, WorkDivMembers<TDim, TIdx>>
@@ -147,6 +145,7 @@ namespace alpaka
 
     ALPAKA_NO_HOST_ACC_WARNING
 
+     //! Deduction guide for the constructor which can be called without explicit template type parameters
     template<typename T, size_t N>
     ALPAKA_FN_HOST_ACC explicit WorkDivMembers(
         std::array<T, N> const gridBlockExtent,
