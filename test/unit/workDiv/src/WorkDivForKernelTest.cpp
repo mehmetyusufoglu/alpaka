@@ -176,6 +176,16 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
         // Depending on the GPU type or the compiler the test below might fail because threadsPerBlock can be equal to
         // threadsPerBlockLimit, which is the max device limit.
         CHECK(threadsPerBlock < static_cast<Idx>(threadsPerBlockLimit));
+
+        // too many threads per block
+        auto const invalidWorkDiv
+            = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{2 * threadsPerBlock, 1}, Vec{1, 1}};
+        auto isWorkDivValidForCuda = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, invalidWorkDiv);
+        CHECK(isWorkDivValidForCuda == false);
+
+        auto const validWorkDiv = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{1, threadsPerBlock}, Vec{1, 1}};
+        isWorkDivValidForCuda = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, validWorkDiv);
+        CHECK(isWorkDivValidForCuda == true);
     }
     else if constexpr(alpaka::accMatchesTags<Acc, alpaka::TagGpuHipRt>)
     {
@@ -186,6 +196,16 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
         // Depending on the GPU type or the compiler this test might fail because threadsPerBlock can be less than
         // threadsPerBlockLimit, which is the max device limit.
         CHECK(threadsPerBlock == static_cast<Idx>(threadsPerBlockLimit));
+
+        // too many threads per block
+        auto const invalidWorkDiv
+            = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{2 * threadsPerBlock, 1}, Vec{1, 1}};
+        auto isWorkDivValidForHip = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, invalidWorkDiv);
+        CHECK(isWorkDivValidForHip == false);
+
+        auto const validWorkDiv = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{1, threadsPerBlock}, Vec{1, 1}};
+        isWorkDivValidForHip = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, validWorkDiv);
+        CHECK(isWorkDivValidForHip == true);
     }
     else if constexpr(alpaka::accMatchesTags<
                           Acc,
