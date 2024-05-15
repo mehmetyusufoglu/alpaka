@@ -170,10 +170,20 @@ namespace alpaka
         // For equal block thread extent, restrict it to its minimum component.
         // For example (512, 256, 1024) will get (256, 256, 256).
         if(gridBlockExtentSubDivRestrictions == GridBlockExtentSubDivRestrictions::EqualExtent)
-            blockThreadExtent = Vec::all(blockThreadExtent.min());
+            blockThreadExtent = Vec::all(blockThreadExtent.min() != TIdx(0) ? blockThreadExtent.min() : TIdx(1));
+
         // Choose kernelBlockThreadCountMax if it is not zero. It is less than the accelerator properties.
         TIdx const& blockThreadCountMax
             = (kernelBlockThreadCountMax != 0) ? kernelBlockThreadCountMax : accDevProps.m_blockThreadCountMax;
+
+        // Block thread extent could be {1024,1024,1024} although max threads per block is 1024. Block thread extent
+        // shows the max number of threads along each axis, it is not a measure to get max number of threads per block.
+        // It must be further limited (clipped above) by the kernel limit along each axis, using device limits is not
+        // enough.
+        for(typename TDim::value_type i(0); i < TDim::value; ++i)
+        {
+            blockThreadExtent[i] = std::min(blockThreadExtent[i], blockThreadCountMax);
+        }
 
         // Make the blockThreadExtent product smaller or equal to the accelerator's limit.
         if(blockThreadCountMax == 1)

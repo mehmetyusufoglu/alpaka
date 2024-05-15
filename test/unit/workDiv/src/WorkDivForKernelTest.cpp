@@ -156,7 +156,7 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
 
     // Test getValidWorkDivForKernel function for threadsPerGridTestValue threads per grid.
     auto const workDiv
-        = alpaka::getValidWorkDivForKernel<Acc>(dev, bundeledKernel, Vec{threadsPerGridTestValue / 8, 8}, Vec{1, 1});
+        = alpaka::getValidWorkDivForKernel<Acc>(dev, bundeledKernel, Vec{8, threadsPerGridTestValue / 8}, Vec{1, 1});
 
     // Test isValidWorkDivKernel function
     auto const isValid = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, workDiv);
@@ -165,7 +165,8 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
     if constexpr(alpaka::accMatchesTags<Acc, alpaka::TagGpuCudaRt>)
     {
         // Expected valid workdiv for this kernel. These values might change depending on the GPU type and compiler
-        // therefore commented out. CHECK(workDiv == WorkDiv{Vec{65535, 1}, Vec{64, 8}, Vec{1, 1}});
+        // therefore commented out. Number of registers used by kernel might limit threads per block value differently
+        // for different GPUs. CHECK(workDiv == WorkDiv{Vec{8, 729444}, Vec{1, 736}, Vec{1, 1}});
 
         // Get calculated threads per block from the workDiv found by examining kernel function
         auto const threadsPerBlock = workDiv.m_blockThreadExtent.prod();
@@ -194,7 +195,7 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
                           alpaka::TagCpuTbbBlocks>)
     {
         // CPU must have only 1 thread per block. In other words, number of blocks is equal to number of threads.
-        CHECK(workDiv == WorkDiv{Vec{threadsPerGridTestValue / 8, 8}, Vec{1, 1}, Vec{1, 1}});
+        CHECK(workDiv == WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{1, 1}, Vec{1, 1}});
         // Test a new 2D workdiv. Threads per block can not be larger than 1 for CPU. Hence 2x1 threads is not valid.
         auto const& invalidWorkDiv2D = WorkDiv{Vec{1, 2048}, Vec{1, 2}, Vec{1, 1}};
         auto const isWorkDivValidForCpu = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, invalidWorkDiv2D);
