@@ -195,7 +195,7 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
         auto const threadsPerBlockLimit = props.m_blockThreadCountMax;
         // Depending on the GPU type or the compiler this test might fail because threadsPerBlock can be less than
         // threadsPerBlockLimit, which is the max device limit.
-        CHECK(threadsPerBlock == static_cast<Idx>(threadsPerBlockLimit));
+        CHECK(threadsPerBlock < static_cast<Idx>(threadsPerBlockLimit));
 
         // too many threads per block
         auto const invalidWorkDiv
