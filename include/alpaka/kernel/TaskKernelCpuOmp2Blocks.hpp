@@ -20,6 +20,7 @@
 #include "alpaka/kernel/KernelBundle.hpp"
 #include "alpaka/kernel/KernelFunctionAttributes.hpp"
 #include "alpaka/kernel/Traits.hpp"
+#include "alpaka/platform/PlatformCpu.hpp"
 #include "alpaka/workdiv/WorkDivMembers.hpp"
 
 #include <functional>
@@ -967,7 +968,12 @@ namespace alpaka
                 -> alpaka::KernelFunctionAttributes
             {
                 alpaka::KernelFunctionAttributes kernelFunctionAttributes;
-                kernelFunctionAttributes.maxThreadsPerBlock = 1u;
+                using Acc = AccCpuOmp2Blocks<TDim, TIdx>;
+                auto const platformAcc = alpaka::Platform<Acc>{};
+                auto const dev = alpaka::getDevByIdx(platformAcc, 0);
+                // set function properties to device properties
+                auto const& props = alpaka::getAccDevProps<Acc>(dev);
+                kernelFunctionAttributes.maxThreadsPerBlock = static_cast<int>(props.m_blockThreadCountMax);
                 return kernelFunctionAttributes;
             }
         };

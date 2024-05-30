@@ -436,7 +436,7 @@ namespace alpaka
 
                 kernelFunctionAttributes.numRegs = funcAttrs.numRegs;
                 kernelFunctionAttributes.asmVersion = funcAttrs.ptxVersion;
-                kernelFunctionAttributes.maxThreadsPerBlock = funcAttrs.maxThreadsPerBlock;
+                kernelFunctionAttributes.maxThreadsPerBlock = static_cast<int>(funcAttrs.maxThreadsPerBlock);
 
 #        if ALPAKA_DEBUG >= ALPAKA_DEBUG_FULL
                 printf("Kernel Function Attributes: \n");
