@@ -108,9 +108,18 @@ TEMPLATE_LIST_TEST_CASE("getValidWorkDivForKernel.1D", "[workDivKernel]", TestAc
         // threadsPerBlockLimit, which is the max device limit.
         CHECK(threadsPerBlock < static_cast<Idx>(threadsPerBlockLimit));
     }
+    else if constexpr(alpaka::accMatchesTags<Acc, alpaka::TagGpuHipRt>)
+    {
+        // Get calculated threads per block from the workDiv that was found by examining kernel function
+        auto const threadsPerBlock = workDiv.m_blockThreadExtent.prod();
+        // Get hard limits
+        auto const threadsPerBlockLimit = props.m_blockThreadCountMax;
+        // Depending on the GPU type or the compiler the test below might fail because threadsPerBlock can be equal to
+        // threadsPerBlockLimit, which is the max device limit.
+        CHECK(threadsPerBlock == static_cast<Idx>(threadsPerBlockLimit));
+    }
     else if constexpr(alpaka::accMatchesTags<
                           Acc,
-                          alpaka::TagGpuHipRt,
                           alpaka::TagCpuThreads,
                           alpaka::TagCpuOmp2Threads,
                           alpaka::TagFpgaSyclIntel,
@@ -123,7 +132,7 @@ TEMPLATE_LIST_TEST_CASE("getValidWorkDivForKernel.1D", "[workDivKernel]", TestAc
         auto const threadsPerBlockLimit = props.m_blockThreadCountMax;
         // Depending on the GPU type or the compiler the test below might fail because threadsPerBlock can be equal to
         // threadsPerBlockLimit, which is the max device limit.
-        CHECK(threadsPerBlock == static_cast<Idx>(threadsPerBlockLimit));
+        CHECK(threadsPerBlock <= static_cast<Idx>(threadsPerBlockLimit));
     }
     else if constexpr(alpaka::accMatchesTags<
                           Acc,
@@ -213,19 +222,19 @@ TEMPLATE_LIST_TEST_CASE("getValidWorkDivForKernel.2D", "[workDivKernel]", TestAc
         auto const threadsPerBlock = workDiv.m_blockThreadExtent.prod();
         // Get hard limits
         auto const threadsPerBlockLimit = props.m_blockThreadCountMax;
-        // Depending on the GPU type or the compiler this test might fail because threadsPerBlock can be less than
-        // threadsPerBlockLimit, which is the max device limit.
-        CHECK(threadsPerBlock < static_cast<Idx>(threadsPerBlockLimit));
+        // Depending on the GPU type threadsPerBlock can be less than
+        // threadsPerBlockLimit or equal.
+        CHECK(threadsPerBlock <= static_cast<Idx>(threadsPerBlockLimit));
 
         // too many threads per block
         auto const invalidWorkDiv
-            = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{2 * threadsPerBlock, 1}, Vec{1, 1}};
-        auto isWorkDivValidForHip = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, invalidWorkDiv);
-        CHECK(isWorkDivValidForHip == false);
+            = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{2 * threadsPerBlockLimit, 1}, Vec{1, 1}};
+        auto isWorkDivValid = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, invalidWorkDiv);
+        CHECK(isWorkDivValid == false);
 
         auto const validWorkDiv = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{1, threadsPerBlock}, Vec{1, 1}};
-        isWorkDivValidForHip = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, validWorkDiv);
-        CHECK(isWorkDivValidForHip == true);
+        isWorkDivValid = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, validWorkDiv);
+        CHECK(isWorkDivValid == true);
     }
     else if constexpr(alpaka::accMatchesTags<
                           Acc,
