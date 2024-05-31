@@ -8,6 +8,7 @@
 #include <alpaka/acc/AccCpuTbbBlocks.hpp>
 #include <alpaka/acc/AccDevProps.hpp>
 #include <alpaka/acc/AccGpuUniformCudaHipRt.hpp>
+#include <alpaka/idx/Traits.hpp>
 #include <alpaka/kernel/KernelBundle.hpp>
 #include <alpaka/kernel/KernelFunctionAttributes.hpp>
 #include <alpaka/test/acc/TestAccs.hpp>
@@ -19,7 +20,7 @@
 struct TestKernelWithManyRegisters
 {
     template<typename TAcc>
-    [[maybe_unused]] ALPAKA_FN_ACC auto operator()(TAcc const&, std::size_t sizeOfArray) const -> void
+    [[maybe_unused]] ALPAKA_FN_ACC auto operator()(TAcc const&, std::size_t val) const -> void
     {
         double var0 = 1.0;
         double var1 = 2.0;
@@ -67,13 +68,13 @@ struct TestKernelWithManyRegisters
         double sum = var0 + var1 + var2 + var3 + var4 + var5 + var6 + var7 + var8 + var9 + var10 + var11 + var12
                      + var13 + var14 + var15 + var16 + var17 + var18 + var19 + var20 + var21 + var22 + var23 + var24
                      + var25 + var26 + var27 + var28 + var29 + var30 + var31 + var32 + var33 + var34 + var35;
-        printf("The sum is %5.2f, the argument is %lu ", sum, sizeOfArray);
+        printf("The sum is %5.2f, the argument is %lu ", sum, val);
     }
 };
 
 using TestAccs = alpaka::test::EnabledAccs<alpaka::DimInt<1u>, std::uint32_t>;
 
-TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.1D.withIdx", "[workDivKernel]", TestAccs)
+TEMPLATE_LIST_TEST_CASE("getValidWorkDivForKernel.1D", "[workDivKernel]", TestAccs)
 {
     using Acc = TestType;
     using Idx = alpaka::Idx<Acc>;
@@ -109,7 +110,7 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.1D.withIdx", "[workDivKernel]", T
     }
     else if constexpr(alpaka::accMatchesTags<Acc, alpaka::TagGpuHipRt>)
     {
-        // Get calculated threads per block from the workDiv found by examining kernel function
+        // Get calculated threads per block from the workDiv that was found by examining kernel function
         auto const threadsPerBlock = workDiv.m_blockThreadExtent.prod();
         // Get hard limits
         auto const threadsPerBlockLimit = props.m_blockThreadCountMax;
@@ -119,24 +120,44 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.1D.withIdx", "[workDivKernel]", T
     }
     else if constexpr(alpaka::accMatchesTags<
                           Acc,
-                          alpaka::TagCpuSerial,
                           alpaka::TagCpuThreads,
                           alpaka::TagCpuOmp2Threads,
-                          alpaka::TagCpuTbbBlocks>)
+                          alpaka::TagFpgaSyclIntel,
+                          alpaka::TagGpuSyclIntel,
+                          alpaka::TagGenericSycl>)
+    {
+        // Get calculated threads per block from the workDiv that was found by examining kernel function
+        auto const threadsPerBlock = workDiv.m_blockThreadExtent.prod();
+        // Get hard limits
+        auto const threadsPerBlockLimit = props.m_blockThreadCountMax;
+        // Depending on the GPU type or the compiler the test below might fail because threadsPerBlock can be equal to
+        // threadsPerBlockLimit, which is the max device limit.
+        CHECK(threadsPerBlock <= static_cast<Idx>(threadsPerBlockLimit));
+    }
+    else if constexpr(alpaka::accMatchesTags<
+                          Acc,
+                          alpaka::TagCpuSerial,
+                          alpaka::TagCpuOmp2Blocks,
+                          alpaka::TagCpuTbbBlocks,
+                          alpaka::TagCpuSycl>)
     {
         // CPU must have only 1 thread per block. In other words, number of blocks is equal to number of threads.
         CHECK(workDiv == WorkDiv{Vec{threadsPerGridTestValue}, Vec{1}, Vec{1}});
         // Test a new 1D workdiv. Threads per block can not be larger than 1 for CPU. Hence 2 is not valid.
         auto const& workDiv1DUsingInitList = WorkDiv{Vec{threadsPerGridTestValue / 2}, Vec{2}, Vec{1}};
-        auto const isWorkDivValidForCpu
+        auto const isWorkDivValidForCPU
             = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, workDiv1DUsingInitList);
-        CHECK(isWorkDivValidForCpu == false);
+        CHECK(isWorkDivValidForCPU == false);
+    }
+    else
+    {
+        throw std::invalid_argument("Acc type is not among tested Accs.");
     }
 }
 
 using TestAccs2D = alpaka::test::EnabledAccs<alpaka::DimInt<2u>, std::uint32_t>;
 
-TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", TestAccs2D)
+TEMPLATE_LIST_TEST_CASE("getValidWorkDivForKernel.2D", "[workDivKernel]", TestAccs2D)
 {
     using Acc = TestType;
     using Idx = alpaka::Idx<Acc>;
@@ -147,6 +168,7 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
     auto const dev = alpaka::getDevByIdx(platform, 0);
 
     TestKernelWithManyRegisters kernel;
+    // A random value
     size_t val(200ul);
     auto const& bundeledKernel = alpaka::KernelBundle(kernel, val);
 
@@ -168,7 +190,7 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
         // therefore commented out. Number of registers used by kernel might limit threads per block value differently
         // for different GPUs. CHECK(workDiv == WorkDiv{Vec{8, 729444}, Vec{1, 736}, Vec{1, 1}});
 
-        // Get calculated threads per block from the workDiv found by examining kernel function
+        // Get calculated threads per block from the workDiv that was found by examining kernel function
         auto const threadsPerBlock = workDiv.m_blockThreadExtent.prod();
         // Get hard limits
         auto const threadsPerBlockLimit = props.m_blockThreadCountMax;
@@ -187,32 +209,39 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
         isWorkDivValidForCuda = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, validWorkDiv);
         CHECK(isWorkDivValidForCuda == true);
     }
-    else if constexpr(alpaka::accMatchesTags<Acc, alpaka::TagGpuHipRt>)
+    else if constexpr(alpaka::accMatchesTags<
+                          Acc,
+                          alpaka::TagGpuHipRt,
+                          alpaka::TagCpuThreads,
+                          alpaka::TagCpuOmp2Threads,
+                          alpaka::TagFpgaSyclIntel,
+                          alpaka::TagGpuSyclIntel,
+                          alpaka::TagGenericSycl>)
     {
-        // Get calculated threads per block from the workDiv found by examining the kernel function
+        // Get calculated threads per block from the workDiv that was found by examining the kernel function
         auto const threadsPerBlock = workDiv.m_blockThreadExtent.prod();
         // Get hard limits
         auto const threadsPerBlockLimit = props.m_blockThreadCountMax;
-        // Depending on the GPU type or the compiler this test might fail because threadsPerBlock can be less than
-        // threadsPerBlockLimit, which is the max device limit.
-        CHECK(threadsPerBlock < static_cast<Idx>(threadsPerBlockLimit));
+        // Depending on the GPU type threadsPerBlock can be less than
+        // threadsPerBlockLimit or equal.
+        CHECK(threadsPerBlock <= static_cast<Idx>(threadsPerBlockLimit));
 
         // too many threads per block
         auto const invalidWorkDiv
-            = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{2 * threadsPerBlock, 1}, Vec{1, 1}};
-        auto isWorkDivValidForHip = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, invalidWorkDiv);
-        CHECK(isWorkDivValidForHip == false);
+            = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{2 * threadsPerBlockLimit, 1}, Vec{1, 1}};
+        auto isWorkDivValid = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, invalidWorkDiv);
+        CHECK(isWorkDivValid == false);
 
         auto const validWorkDiv = WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{1, threadsPerBlock}, Vec{1, 1}};
-        isWorkDivValidForHip = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, validWorkDiv);
-        CHECK(isWorkDivValidForHip == true);
+        isWorkDivValid = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, validWorkDiv);
+        CHECK(isWorkDivValid == true);
     }
     else if constexpr(alpaka::accMatchesTags<
                           Acc,
                           alpaka::TagCpuSerial,
-                          alpaka::TagCpuThreads,
-                          alpaka::TagCpuOmp2Threads,
-                          alpaka::TagCpuTbbBlocks>)
+                          alpaka::TagCpuOmp2Blocks,
+                          alpaka::TagCpuTbbBlocks,
+                          alpaka::TagCpuSycl>)
     {
         // CPU must have only 1 thread per block. In other words, number of blocks is equal to number of threads.
         CHECK(workDiv == WorkDiv{Vec{8, threadsPerGridTestValue / 8}, Vec{1, 1}, Vec{1, 1}});
@@ -220,5 +249,9 @@ TEMPLATE_LIST_TEST_CASE("getFunctionAttributes.2D.withIdx", "[workDivKernel]", T
         auto const& invalidWorkDiv2D = WorkDiv{Vec{1, 2048}, Vec{1, 2}, Vec{1, 1}};
         auto const isWorkDivValidForCpu = alpaka::isValidWorkDivKernel<Acc>(dev, bundeledKernel, invalidWorkDiv2D);
         CHECK(isWorkDivValidForCpu == false);
+    }
+    else
+    {
+        throw std::invalid_argument("Acc type is not among tested Accs.");
     }
 }
