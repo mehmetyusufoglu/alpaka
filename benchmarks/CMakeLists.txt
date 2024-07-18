@@ -16,3 +16,4 @@ project("alpakaBenchmarks" LANGUAGES CXX)
 ################################################################################
 
 add_subdirectory("babelstream/")
+add_subdirectory("matrixMultiplication/")
