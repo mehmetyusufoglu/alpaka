@@ -5,6 +5,9 @@
 #include <alpaka/alpaka.hpp>
 #include <alpaka/example/ExecuteForEachAccTag.hpp>
 
+// pngwriter should be installed
+#include <pngwriter.h>
+
 #include <algorithm>
 #include <cmath>
 #include <iostream>
