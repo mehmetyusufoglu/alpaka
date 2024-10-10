@@ -115,6 +115,7 @@ auto example(TAccTag const&) -> int
         numNodes[0] % chunkSize[0] == 0 && numNodes[1] % chunkSize[1] == 0
         && "Domain must be divisible by chunk size");
 
+    std::cout << "sharedMemSize:" << sharedMemSize << std::endl;
     StencilKernel<sharedMemSize> stencilKernel;
     BoundaryKernel boundaryKernel;
 
@@ -137,6 +138,8 @@ auto example(TAccTag const&) -> int
 
     alpaka::WorkDivMembers<Dim, Idx> workDiv_manual{numChunks, threadsPerBlock, elemPerThread};
 
+    std::cout << "workDiv_manual:" << workDiv_manual << std::endl;
+  //  pause();
     // Timing start
     auto startTime = std::chrono::high_resolution_clock::now();
 

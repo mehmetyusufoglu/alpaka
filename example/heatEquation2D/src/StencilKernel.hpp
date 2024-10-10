@@ -75,8 +75,9 @@ struct StencilKernel
         // go over only core cells
         for(auto i = blockThreadIdx2D[0]; i < chunkSize[0]; i += blockThreadExtent[0])
         {
-            for(auto j = blockThreadIdx2D[1]; i < chunkSize[1]; i += blockThreadExtent[1])
+            for(auto j = blockThreadIdx2D[1]; j < chunkSize[1]; j += blockThreadExtent[1])
             {
+                //if(j!=0) printf("[%d,%d] ",i,j);
                 // offset for halo, data index in buffer includes halo/2 border
                 auto localDataIdx2D = alpaka::Vec(i, j) + alpaka::Vec<TDim, TIdx>{1, 1};
                 auto const globalDataIdx2D = localDataIdx2D + blockStartIdxInData;
