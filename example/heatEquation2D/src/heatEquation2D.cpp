@@ -100,8 +100,8 @@ auto example(TAccTag const&) -> int
     constexpr alpaka::Vec<Dim, Idx> elemPerThread{1, 1};
 
     // Appropriate chunk size to split your problem for your Acc
-    constexpr Idx xSize = 16u;
-    constexpr Idx ySize = 16u;
+    constexpr Idx xSize = 32u;
+    constexpr Idx ySize = 32u;
     constexpr Idx halo = 2u;
     constexpr alpaka::Vec<Dim, Idx> chunkSize{ySize, xSize};
     constexpr auto sharedMemSize = (ySize + halo) * (xSize + halo);
