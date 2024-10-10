@@ -227,6 +227,13 @@ namespace alpaka
             return m_data[Dim::value - 4];
         }
 
+        //! Function returns the size of the static array
+        //! \return The size
+        ALPAKA_FN_HOST_ACC static constexpr decltype(auto) size()
+        {
+            return Dim::value;
+        }
+
         //! @}
 
         //! Value reference accessor at the given non-unsigned integer index.

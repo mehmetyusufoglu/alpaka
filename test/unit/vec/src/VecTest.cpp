@@ -313,6 +313,29 @@ TEST_CASE("basicVecTraits", "[vec]")
         STATIC_REQUIRE(Vec{1, 2, 3}.front() == 1); // non-const overload
         STATIC_REQUIRE(Vec{1, 2, 3}.back() == 3); // non-const overload
     }
+    {
+        constexpr alpaka::Vec<Dim, Idx> vec4(static_cast<Idx>(47u), static_cast<Idx>(8u), static_cast<Idx>(3u));
+        // compile time tests
+        STATIC_REQUIRE(vec4.size() == 3);
+        STATIC_REQUIRE((alpaka::Vec{4, 8, 3}).size() == 3);
+        STATIC_REQUIRE((alpaka::Vec{4, 8}).size() == 2);
+        STATIC_REQUIRE((alpaka::Vec{4}).size() == 1);
+        STATIC_REQUIRE(decltype(vec4)::size() == 3);
+        STATIC_REQUIRE(decltype(alpaka::Vec{4, 8, 3})::size() == 3);
+
+        using Vec3DType = alpaka::Vec<Dim, Idx>;
+        STATIC_REQUIRE(Vec3DType::size() == 3);
+
+        constexpr alpaka::Vec vec5{8, 3};
+        STATIC_REQUIRE(vec5.size() == 2);
+
+        // runtime tests
+        REQUIRE(vec4.size() == 3);
+        REQUIRE((alpaka::Vec{4, 8, 3}).size() == 3);
+        REQUIRE((alpaka::Vec{4, 8}).size() == 2);
+        REQUIRE((alpaka::Vec{4}).size() == 1);
+        REQUIRE(vec5.size() == 2);
+    }
 }
 
 template<typename TDim, typename TIdx>
