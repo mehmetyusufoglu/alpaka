@@ -50,17 +50,18 @@ struct StencilKernel
 
         // Get indexes
         auto const gridBlockIdx = alpaka::getIdx<alpaka::Grid, alpaka::Blocks>(acc);
-        auto const blockThreadIdx = alpaka::getIdx<alpaka::Block, alpaka::Threads>(acc);
-        auto const threadIdx1D = alpaka::mapIdx<1>(blockThreadIdx, blockThreadExtent)[0u];
-        auto const blockStartIdx = gridBlockIdx * chunkSize;
+        auto const blockThreadIdx2D = alpaka::getIdx<alpaka::Block, alpaka::Threads>(acc);
+        auto const blockThreadIdx1D = alpaka::mapIdx<1>(blockThreadIdx2D, blockThreadExtent)[0u];
+        // Each block is responsible from a chunk of data
+        auto const blockStartIdxInData = gridBlockIdx * chunkSize;
 
         constexpr alpaka::Vec<TDim, TIdx> halo{2, 2};
 
-        for(auto i = threadIdx1D; i < T_SharedMemSize1D; i += numThreadsPerBlock)
+        for(auto i = blockThreadIdx1D; i < T_SharedMemSize1D; i += numThreadsPerBlock)
         {
-            auto idx2d = alpaka::mapIdx<2>(alpaka::Vec(i), chunkSize + halo);
-            idx2d = idx2d + blockStartIdx;
-            auto elem = getElementPtr(uCurrBuf, idx2d, pitchCurr);
+            auto idxData2D = alpaka::mapIdx<2>(alpaka::Vec(i), chunkSize + halo);
+            idxData2D = idxData2D + blockStartIdxInData;
+            auto elem = getElementPtr(uCurrBuf, idxData2D, pitchCurr);
             sdata[i] = *elem;
         }
 
@@ -70,20 +71,24 @@ struct StencilKernel
         double const rX = dt / (dx * dx);
         double const rY = dt / (dy * dy);
 
+
         // go over only core cells
-        for(auto i = threadIdx1D; i < chunkSize.prod(); i += numThreadsPerBlock)
+        for(auto i = blockThreadIdx2D[0]; i < chunkSize[0]; i += blockThreadExtent[0])
         {
-            auto idx2D = alpaka::mapIdx<2>(alpaka::Vec(i), chunkSize);
-            idx2D = idx2D + alpaka::Vec<TDim, TIdx>{1, 1}; // offset for halo above and to the left
-            auto localIdx1D = alpaka::mapIdx<1>(idx2D, chunkSize + halo)[0u];
+            for(auto j = blockThreadIdx2D[1]; i < chunkSize[1]; i += blockThreadExtent[1])
+            {
+                // offset for halo, data index in buffer includes halo/2 border
+                auto localDataIdx2D = alpaka::Vec(i, j) + alpaka::Vec<TDim, TIdx>{1, 1};
+                auto const globalDataIdx2D = localDataIdx2D + blockStartIdxInData;
+                auto elem = getElementPtr(uNextBuf, globalDataIdx2D, pitchNext);
 
+                // convert indexes to 1D for shared memory access
+                auto localDataIdx1D = alpaka::mapIdx<1>(localDataIdx2D, chunkSize + halo)[0u];
 
-            auto bufIdx = idx2D + blockStartIdx;
-            auto elem = getElementPtr(uNextBuf, bufIdx, pitchNext);
-
-            *elem = sdata[localIdx1D] * (1.0 - 2.0 * rX - 2.0 * rY) + sdata[localIdx1D - 1] * rX
-                    + sdata[localIdx1D + 1] * rX + sdata[localIdx1D - chunkSize[1] - halo[1]] * rY
-                    + sdata[localIdx1D + chunkSize[1] + halo[1]] * rY;
+                *elem = sdata[localDataIdx1D] * (1.0 - 2.0 * rX - 2.0 * rY) + sdata[localDataIdx1D - 1] * rX
+                        + sdata[localDataIdx1D + 1] * rX + sdata[localDataIdx1D - chunkSize[1] - halo[1]] * rY
+                        + sdata[localDataIdx1D + chunkSize[1] + halo[1]] * rY;
+            }
         }
     }
 };

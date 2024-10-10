@@ -137,6 +137,10 @@ auto example(TAccTag const&) -> int
 
     alpaka::WorkDivMembers<Dim, Idx> workDiv_manual{numChunks, threadsPerBlock, elemPerThread};
 
+    // Timing start
+    auto startTime = std::chrono::high_resolution_clock::now();
+
+
     // Simulate
     for(uint32_t step = 1; step <= numTimeSteps; ++step)
     {
@@ -167,19 +171,24 @@ auto example(TAccTag const&) -> int
             dy,
             dt);
 
-#ifdef PNGWRITER_ENABLED
-        if((step - 1) % 100 == 0)
-        {
-            alpaka::wait(computeQueue);
-            alpaka::memcpy(dumpQueue, uBufHost, uCurrBufAcc);
-            alpaka::wait(dumpQueue);
-            writeImage(step - 1, uBufHost);
-        }
-#endif
+        // #ifdef PNGWRITER_ENABLED
+        //         if((step - 1) % 100 == 0)
+        //         {
+        //             alpaka::wait(computeQueue);
+        //             alpaka::memcpy(dumpQueue, uBufHost, uCurrBufAcc);
+        //             alpaka::wait(dumpQueue);
+        //             writeImage(step - 1, uBufHost);
+        //         }
+        // #endif
 
         // So we just swap next and curr (shallow copy)
         std::swap(uNextBufAcc, uCurrBufAcc);
     }
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+
+    std::cout << "Simulation took " << (endTime - startTime).count() << " nano seconds." << std::endl;
+
 
     // Copy device -> host
     alpaka::wait(computeQueue);
