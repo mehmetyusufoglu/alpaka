@@ -63,6 +63,24 @@ def build_babelstream():
     run_command(f"cmake --build build --target babelstream -j {num_cores}")
     os.chdir("..")
 
+def build_babelstream_rocm():
+    """ Build the BabelStream benchmark for ROCm/HIP backend """
+    num_cores = max(1, multiprocessing.cpu_count() - 2)
+    os.chdir("alpaka")
+    boost_path = subprocess.run("spack location -i /u3oct6d", shell=True, stdout=subprocess.PIPE).stdout.decode().strip() + "/include"
+    run_command(f"cmake -S . -B build -Dalpaka_ACC_GPU_HIP_ENABLE=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF -Dalpaka_BUILD_BENCHMARKS=ON -DCMAKE_BUILD_TYPE=Release -DBoost_INCLUDE_DIR={boost_path}")
+    run_command(f"cmake --build build --target babelstream -j {num_cores}")
+    os.chdir("..")
+
+def build_babelstream_sycl():
+    """ Build the BabelStream benchmark for Intel SYCL backend """
+    num_cores = max(1, multiprocessing.cpu_count() - 2)
+    os.chdir("alpaka")
+    boost_path = subprocess.run("spack location -i /u3oct6d", shell=True, stdout=subprocess.PIPE).stdout.decode().strip() + "/include"
+    run_command(f"cmake -S . -B build -Dalpaka_ACC_SYCL_ENABLE=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF -Dalpaka_BUILD_BENCHMARKS=ON -DCMAKE_BUILD_TYPE=Release -DBoost_INCLUDE_DIR={boost_path}")
+    run_command(f"cmake --build build --target babelstream -j {num_cores}")
+    os.chdir("..")
+
 def run_babelstream():
     """ Navigate to the build directory and run babelstream, saving the output to a file """
     datetime_now = datetime.now()
@@ -77,6 +95,10 @@ if __name__ == "__main__":
     if setup_environment():
         clone_or_update_alpaka()
         build_babelstream()
+        run_babelstream()
+        build_babelstream_rocm()
+        run_babelstream()
+        build_babelstream_sycl()
         run_babelstream()
     else:
         print("Environment setup failed. Please check the errors and try again.")
