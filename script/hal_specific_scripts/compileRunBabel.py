@@ -87,7 +87,10 @@ def build_babelstream_rocm():
     run_command(f"cmake --build build --target babelstream -j {num_cores}")
     os.chdir("..")
 
+#  extra_flags = "-DALPAKA_ACC_SYCL_ENABLED=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF -Dalpaka_SYCL_ONEAPI_GPU=ON alpaka_SYCL_ONEAPI_GPU_DEVICES=\"spir64\""
 
+#
+#
 def build_babelstream_sycl():
     """ Build the BabelStream benchmark for Intel SYCL backend """
     num_cores = max(1, multiprocessing.cpu_count() - 2)
@@ -100,7 +103,7 @@ def build_babelstream_sycl():
         shutil.rmtree(build_dir)
     os.makedirs(build_dir)
 
-    run_command(f"cmake -S . -B build -Dalpaka_ACC_SYCL_ENABLE=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF -Dalpaka_BUILD_BENCHMARKS=ON -DCMAKE_BUILD_TYPE=Release -DBoost_INCLUDE_DIR={boost_path}")
+    run_command(f"cmake -S . -B build -Dalpaka_ACC_SYCL_ENABLE=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF -Dalpaka_ACC_CPU_B_SEQ_T_THREADS=OFF -Dalpaka_BUILD_BENCHMARKS=ON -DCMAKE_BUILD_TYPE=Release -Dalpaka_SYCL_ONEAPI_GPU=ON -Dalpaka_SYCL_ONEAPI_GPU_DEVICES=spir64 -DBoost_INCLUDE_DIR={boost_path}")
     run_command(f"cmake --build build --target babelstream -j {num_cores}")
     os.chdir("..")
 
@@ -117,12 +120,13 @@ def run_babelstream():
 if __name__ == "__main__":
     if setup_environment():
         clone_or_update_alpaka()
-        build_babelstream()
-        run_babelstream()
-        build_babelstream_rocm()
-        run_babelstream()
+#        build_babelstream()
+#        run_babelstream()
+#        build_babelstream_rocm()
+#        run_babelstream()
         build_babelstream_sycl()
         run_babelstream()
+#        build_and_test_babelstream_sycl();
     else:
         print("Environment setup failed. Please check the errors and try again.")
 
