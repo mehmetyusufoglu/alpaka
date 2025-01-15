@@ -32,6 +32,35 @@ public:
     }
 };
 
+
+// SIMD Kernel
+class SumOfSquaresSIMDKernel1Thread1SIMD {
+public:
+    ALPAKA_NO_HOST_ACC_WARNING
+        template<typename Acc>
+        ALPAKA_FN_ACC auto operator()(Acc const& acc, const double* input, double* result, size_t size) const {
+        size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
+        size_t globalSize = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc)[0];
+        constexpr size_t simdWidth = PortableSimd<double>::size();
+        double localSum = 0.0;
+
+
+
+               // SIMD computation for the thread
+        //   for (size_t i = ; i < size * simdWidth; i += globalSize * simdWidth) {
+        PortableSimd<double> simd_data;
+        simd_data.load(&input[globalIdx * simdWidth]);
+
+               // Square the values and accumulate
+        PortableSimd<double> simd_squared = simd_data * simd_data;
+        //localSum += simd_squared.sum();
+        // }
+
+               // Directly accumulate the result using atomicAdd
+        alpaka::atomicAdd(acc, result, simd_squared.sum(), alpaka::hierarchy::Blocks{});
+    }
+};
+
 // Non-SIMD Kernel
 class SumOfSquaresNonSIMDKernel {
 public:
@@ -101,6 +130,7 @@ auto example(TAccTag const&) -> int {
     {
         Data result = 0.0;
         SumOfSquaresSIMDKernel simdKernel;
+        // call by deividing to simd size?
         alpaka::KernelCfg<Acc> const kernelCfg = {extent, elementsPerThread};
 
         auto const workDiv = alpaka::getValidWorkDiv(kernelCfg, devAcc, simdKernel, alpaka::getPtrNative(bufAccA), &result, numElements);
