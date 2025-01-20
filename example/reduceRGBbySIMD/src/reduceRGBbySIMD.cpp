@@ -5,22 +5,22 @@
 #include <chrono>
 #include "simd_library.hpp"
 
-const PortableSimd<double> COEFF_R(0.299);
-const PortableSimd<double> COEFF_G(0.587);
-const PortableSimd<double> COEFF_B(0.114);
+const PortableSimd<float> COEFF_R(0.299);
+const PortableSimd<float> COEFF_G(0.587);
+const PortableSimd<float> COEFF_B(0.114);
 
 class GrayscaleSIMDKernel {
 public:
     ALPAKA_NO_HOST_ACC_WARNING
         template<typename Acc>
-        ALPAKA_FN_ACC auto operator()(Acc const& acc, const double* r, const double* g, const double* b, double* grayscale, size_t size) const {
+        ALPAKA_FN_ACC auto operator()(Acc const& acc, const float* r, const float* g, const float* b, float* grayscale, size_t size) const {
         size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
         size_t globalSize = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc)[0];
 
-        constexpr size_t simdWidth = PortableSimd<double>::size();
+        constexpr size_t simdWidth = PortableSimd<float>::size();
 
         for (size_t i = globalIdx * simdWidth; i < size; i += globalSize * simdWidth) {
-            PortableSimd<double> simdR, simdG, simdB, simdGray;
+            PortableSimd<float> simdR, simdG, simdB, simdGray;
             simdR.load(&r[i]);
             simdG.load(&g[i]);
             simdB.load(&b[i]);
@@ -37,7 +37,7 @@ class GrayscaleNonSIMDKernel {
 public:
     ALPAKA_NO_HOST_ACC_WARNING
         template<typename Acc>
-        ALPAKA_FN_ACC auto operator()(Acc const& acc, const double* inputR, const double* inputG, const double* inputB, double* result) const {
+        ALPAKA_FN_ACC auto operator()(Acc const& acc, const float* inputR, const float* inputG, const float* inputB, float* result) const {
         size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
 
                // Scalar computation for grayscale
@@ -62,11 +62,11 @@ auto example(TAccTag const&) -> int {
     auto const devAcc = alpaka::getDevByIdx(platform, 0);
     QueueAcc queue(devAcc);
 
-    Idx const numElements = 123456;
-    Idx const elementsPerThread = 256;
+    Idx const numElements = 32*1024*1024;
+    Idx const elementsPerThread = 1;
     alpaka::Vec<Dim, Idx> const extent(numElements);
 
-    using Data = double;
+    using Data = float;
     using DevHost = alpaka::DevCpu;
     auto const platformHost = alpaka::PlatformCpu{};
     auto const devHost = alpaka::getDevByIdx(platformHost, 0);
@@ -96,8 +96,9 @@ auto example(TAccTag const&) -> int {
     alpaka::memcpy(queue, bufAccR, bufHostR);
     alpaka::memcpy(queue, bufAccG, bufHostG);
     alpaka::memcpy(queue, bufAccB, bufHostB);
-
-
+    constexpr size_t simdWidth = PortableSimd<Data>::size();
+    std::cout << "simdWidth for type " <<  typeid(Data).name() << " is " << simdWidth << std::endl;
+       std::cout << "numElements: " << numElements << std::endl;
     // Measure SIMD Kernel
     {
         GrayscaleSIMDKernel simdKernel;
@@ -109,7 +110,8 @@ auto example(TAccTag const&) -> int {
                                                      alpaka::getPtrNative(bufAccB),
                                                      alpaka::getPtrNative(bufAccResult),
                                                      numElements); // Pass size here
-
+        std::cout << " " << std::endl;
+        std::cout << workDiv << std::endl;
         auto const taskKernel = alpaka::createTaskKernel<Acc>(workDiv, simdKernel,
                                                               alpaka::getPtrNative(bufAccR),
                                                               alpaka::getPtrNative(bufAccG),
@@ -123,8 +125,70 @@ auto example(TAccTag const&) -> int {
         alpaka::wait(queue);
         auto const endT = std::chrono::high_resolution_clock::now();
 
-        std::cout << "SIMD Kernel Execution Time: " << std::chrono::duration<double>(endT - beginT).count() << "s\n";
+        std::cout << "SIMD Kernel Execution Time: " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
     }
+
+
+    // Measure SIMD Kernel
+    {
+        GrayscaleSIMDKernel simdKernel;
+        alpaka::KernelCfg<Acc> const kernelCfg = {extent, elementsPerThread};
+
+
+        Idx const simdAdjustedExtent = numElements / simdWidth; // Adjust extent for SIMD processing
+        alpaka::Vec<Dim, Idx> const extent(simdAdjustedExtent);
+
+        alpaka::WorkDivMembers<Dim, Idx> workDivManual{simdAdjustedExtent, alpaka::Vec<Dim, Idx>::all(1), alpaka::Vec<Dim, Idx>::all(1)};
+        std::cout << " " << std::endl;
+
+        std::cout << "simdAdjustedExtent = numElements / simdWidth is equal to " <<  simdAdjustedExtent << std::endl;
+        std::cout << workDivManual << std::endl;
+
+        auto const taskKernel = alpaka::createTaskKernel<Acc>(workDivManual, simdKernel,
+                                                              alpaka::getPtrNative(bufAccR),
+                                                              alpaka::getPtrNative(bufAccG),
+                                                              alpaka::getPtrNative(bufAccB),
+                                                              alpaka::getPtrNative(bufAccResult),
+                                                              numElements); // Pass size here
+
+        alpaka::wait(queue);
+        auto const beginT = std::chrono::high_resolution_clock::now();
+        alpaka::enqueue(queue, taskKernel);
+        alpaka::wait(queue);
+        auto const endT = std::chrono::high_resolution_clock::now();
+
+        std::cout << "SIMD Kernel Execution Time (GridxSimdsize covers full data): " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
+    }
+
+
+           // Measure SIMD Kernel
+    {
+        GrayscaleSIMDKernel simdKernel;
+        alpaka::KernelCfg<Acc> const kernelCfg = {extent, elementsPerThread};
+
+        Idx const simdAdjustedExtent = numElements / 32; // Adjust extent for SIMD processing
+        alpaka::Vec<Dim, Idx> const extent(simdAdjustedExtent);
+
+        alpaka::WorkDivMembers<Dim, Idx> workDivManual{simdAdjustedExtent, alpaka::Vec<Dim, Idx>::all(1), alpaka::Vec<Dim, Idx>::all(1)};
+        std::cout << " " << std::endl;
+        std::cout << workDivManual << std::endl;
+
+        auto const taskKernel = alpaka::createTaskKernel<Acc>(workDivManual, simdKernel,
+                                                              alpaka::getPtrNative(bufAccR),
+                                                              alpaka::getPtrNative(bufAccG),
+                                                              alpaka::getPtrNative(bufAccB),
+                                                              alpaka::getPtrNative(bufAccResult),
+                                                              numElements); // Pass size here
+
+        alpaka::wait(queue);
+        auto const beginT = std::chrono::high_resolution_clock::now();
+        alpaka::enqueue(queue, taskKernel);
+        alpaka::wait(queue);
+        auto const endT = std::chrono::high_resolution_clock::now();
+
+        std::cout << "SIMD Kernel Execution Time (Grid x Simdsize does not cover full data): " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
+    }
+
 
 
            // Measure Non-SIMD Kernel
@@ -150,7 +214,7 @@ auto example(TAccTag const&) -> int {
         alpaka::wait(queue);
         auto const endT = std::chrono::high_resolution_clock::now();
 
-        std::cout << "Non-SIMD Kernel Execution Time: " << std::chrono::duration<double>(endT - beginT).count() << "s\n";
+        std::cout << "Non-SIMD Kernel Execution Time: " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
     }
 
     return EXIT_SUCCESS;

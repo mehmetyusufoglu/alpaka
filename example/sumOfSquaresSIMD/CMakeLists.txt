@@ -42,7 +42,6 @@ alpaka_add_executable(
 target_link_libraries(
     ${_TARGET_NAME}
     PUBLIC alpaka::alpaka)
-
 set_target_properties(${_TARGET_NAME} PROPERTIES FOLDER example)
 
 add_test(NAME ${_TARGET_NAME} COMMAND ${_TARGET_NAME})

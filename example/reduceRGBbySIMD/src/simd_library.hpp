@@ -18,12 +18,18 @@ public:
         data = stdx::simd<T>(ptr, stdx::element_aligned);
     }
 
+      PortableSimd() : data(stdx::simd<T>(0)) {}
+
     // Assignment operator
     PortableSimd& operator=(const PortableSimd& other) {
         if (this != &other) {
             data = other.data;
         }
         return *this;
+    }
+
+    explicit PortableSimd(T scalar) {
+        data = stdx::simd<T>(scalar);
     }
 
     // Operator := for loading data
@@ -43,20 +49,6 @@ public:
     PortableSimd operator*(const PortableSimd& other) const {
         PortableSimd result;
         result.data = data * other.data;
-        return result;
-    }
-
-           // Constructor to initialize all elements to a single scalar value
-    explicit PortableSimd(T scalar) {
-        std::array<T, stdx::simd<T>::size()> arr = std::array<T, stdx::simd<T>::size()>{}.fill(scalar);
-        data = stdx::simd<T>(&arr);
-    }
-
-
-    // Overload multiplication for scalar
-    PortableSimd operator*(T scalar) const {
-        PortableSimd result;
-        result.data = data * scalar;
         return result;
     }
 
