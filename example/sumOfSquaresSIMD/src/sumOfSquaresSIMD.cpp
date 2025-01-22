@@ -5,25 +5,38 @@
 #include <chrono>
 #include "simd_library.hpp"
 
+template <typename T, typename Acc>
+struct PortableSimdFactory {
+#if defined(ALPAKA_ACC_GPU_CUDA_ENABLED)
+    using Type = PortableSimdCuda<T>;
+#elif defined(ALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED)
+    using Type = PortableSimdCpu<T>;
+#else
+    static_assert(false, "Unsupported backend!");
+#endif
+};
+
 // SIMD Kernel assuming gridsize is smaller than dataSize/simd_register_size (ie 4 or 8)
 class SumOfSquaresSIMDKernel {
 public:
     ALPAKA_NO_HOST_ACC_WARNING
-        template<typename Acc, size_t simdWidth =  PortableSimd<double>::size()>
+        template<typename Acc, size_t simdWidth =  PortableSimdFactory<double, Acc>::Type::size()>
         ALPAKA_FN_ACC auto operator()(Acc const& acc, const double* input, double* result, size_t dataSize) const {
         size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
         size_t gridSize = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc)[0];
 
         //constexpr size_t simdWidth;
         double localSum = 0.0;
+        using SimdType = typename PortableSimdFactory<double, Acc>::Type;
 
                // SIMD computation for the thread
         for (size_t i = globalIdx * simdWidth; i < dataSize; i += gridSize * simdWidth) {
-             PortableSimd<double> simd_data;
+            using SimdType = typename PortableSimdFactory<double, Acc>::Type;
+            SimdType simd_data;
             simd_data.load(&input[i]);
 
                    // Square the values and accumulate
-             PortableSimd<double> simd_squared = simd_data * simd_data;
+             SimdType simd_squared = simd_data * simd_data;
             localSum += simd_squared.sum();
         }
 
@@ -41,15 +54,18 @@ public:
         ALPAKA_FN_ACC auto operator()(Acc const& acc, const double* input, double* result, size_t dataSize) const {
         size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
         size_t globalSize = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc)[0];
-        constexpr size_t simdWidth =  PortableSimd<double>::size();
+        using SimdType = typename PortableSimdFactory<double, Acc>::Type;
+
+        constexpr size_t simdWidth =  SimdType::size();
         double localSum = 0.0;
                // SIMD computation for the thread
         //   for (size_t i = ; i < dataSize * simdWidth; i += globalSize * simdWidth) {
-         PortableSimd<double> simd_data;
+        using SimdType = typename PortableSimdFactory<double, Acc>::Type;
+         SimdType simd_data;
         simd_data.load(&input[globalIdx * simdWidth]);
 
                // Square the values and accumulate
-         PortableSimd<double> simd_squared = simd_data * simd_data;
+         SimdType simd_squared = simd_data * simd_data;
         //localSum += simd_squared.sum();
         // }
                // Directly accumulate the result using atomicAdd
@@ -122,7 +138,9 @@ auto example(TAccTag const&) -> int {
 
     alpaka::memcpy(queue, bufAccA, bufHostA);
 
-    constexpr size_t simdWidth = PortableSimd<Data>::size();
+    using SimdType = typename PortableSimdFactory<double, Acc>::Type;
+
+    constexpr size_t simdWidth =  SimdType::size();
     std::cout << "simdWidth for type " <<  typeid(Data).name() << " is " << simdWidth << std::endl;
     std::cout << "numElements: " << numElements << std::endl;
 
