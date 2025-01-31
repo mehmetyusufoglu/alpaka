@@ -1,6 +1,8 @@
 #include "simd_library.hpp"
+
 #include <alpaka/alpaka.hpp>
 #include <alpaka/example/ExecuteForEachAccTag.hpp>
+
 #include <chrono>
 #include <iostream>
 #include <random>
@@ -38,8 +40,8 @@ class GrayscaleSIMDKernel
 {
 public:
     ALPAKA_NO_HOST_ACC_WARNING
-        template<typename Acc>
-        ALPAKA_FN_ACC void operator()(Acc const& acc, T* r, T* g, T* b, T* grayscale, size_t size) const
+    template<typename Acc>
+    ALPAKA_FN_ACC void operator()(Acc const& acc, T* r, T* g, T* b, T* grayscale, size_t size) const
     {
         // Use accelerator-specific SIMD constants
         PortableSimd<T, Acc> const COEFF_R(scalarR);
@@ -60,14 +62,52 @@ public:
     }
 };
 
+// MATIAS SIMD Kernel class template
+// SIMD Kernel class template
+template<typename T>
+class MatiasGrayscaleSIMDKernel
+{
+public:
+    ALPAKA_NO_HOST_ACC_WARNING
+    template<typename Acc>
+    ALPAKA_FN_ACC void operator()(Acc const& acc, T* argb, T* grayscale, size_t size) const
+    {
+        constexpr size_t simdWidth = PortableSimd<T, Acc>::size();
+        for(auto i = 0; i < size; i += simdWidth)
+        {
+            PortableSimd<T, Acc> simdA, simdR, simdG, simdB, simdGray, simdARGB;
+            simdARGB.load(&argb[i]); // loads {it[0], it[1], it[2], ...}
+                                     // Broadcast scalars to PortableSimd<T, Acc>
+            PortableSimd<T, Acc> maskFF(0xFFu);
+
+            // Extract components using bitwise operations
+            simdA = simdARGB >> 24; // four uint32 becomes four a s again each of 4 a is uint32
+            simdR = (simdARGB >> 16) & maskFF;
+            simdG = (simdARGB >> 8) & maskFF;
+            simdB = simdARGB & maskFF;
+
+            // Broadcast scalars to PortableSimd<T, Acc>
+            PortableSimd<T, Acc> coeff11(11u);
+            PortableSimd<T, Acc> coeff16(16u);
+            PortableSimd<T, Acc> coeff5(5u);
+            PortableSimd<T, Acc> coeff32(32u);
+
+            // Perform the calculation
+            simdGray = (simdR * coeff11 + simdG * coeff16 + simdB * coeff5) / coeff32;
+            simdARGB = simdGray | (simdGray << 8) | (simdGray << 16) | (simdA << 24);
+            simdARGB.store(&grayscale[i]);
+        }
+    }
+};
+
 // Non-SIMD Kernel class template
 template<typename T>
 class GrayscaleNonSIMDKernel
 {
 public:
     ALPAKA_NO_HOST_ACC_WARNING
-        template<typename Acc>
-        ALPAKA_FN_ACC auto operator()(Acc const& acc, T const* inputR, T const* inputG, T const* inputB, T* result) const
+    template<typename Acc>
+    ALPAKA_FN_ACC auto operator()(Acc const& acc, T const* inputR, T const* inputG, T const* inputB, T* result) const
     {
         size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
         // Scalar computation for grayscale
@@ -108,7 +148,13 @@ auto example(TAccTag const&, size_t numElements) -> int
     // Fill input data with random RGB values
     std::random_device rd;
     std::default_random_engine eng{rd()};
-    std::uniform_real_distribution<T> dist(0.0, 1.0);
+
+    using DistributionType = std::conditional_t<
+        std::is_floating_point_v<T>,
+        std::uniform_real_distribution<T>,
+        std::uniform_int_distribution<T>>;
+    DistributionType dist(std::is_floating_point_v<T> ? 0.0 : 0, std::is_floating_point_v<T> ? 1.0 : 32);
+
     for(Idx i = 0; i < numElements; ++i)
     {
         bufHostR[i] = dist(eng);
@@ -147,9 +193,9 @@ auto example(TAccTag const&, size_t numElements) -> int
         Idx const simdAdjustedExtent = numElements / simdWidth; // Adjust extent for SIMD processing
         alpaka::Vec<Dim, Idx> const extent(simdAdjustedExtent);
         alpaka::WorkDivMembers<Dim, Idx> workDivManual{
-                                                       simdAdjustedExtent,
-                                                       alpaka::Vec<Dim, Idx>::all(1),
-                                                       alpaka::Vec<Dim, Idx>::all(1)};
+            simdAdjustedExtent,
+            alpaka::Vec<Dim, Idx>::all(1),
+            alpaka::Vec<Dim, Idx>::all(1)};
         std::cout << " " << std::endl;
         std::cout << "simdAdjustedExtent = numElements / simdWidth is equal to " << simdAdjustedExtent << std::endl;
         std::cout << workDivManual << std::endl;
@@ -178,9 +224,9 @@ auto example(TAccTag const&, size_t numElements) -> int
         Idx const simdAdjustedExtent = numElements / 32; // Adjust extent for SIMD processing
         alpaka::Vec<Dim, Idx> const extent(simdAdjustedExtent);
         alpaka::WorkDivMembers<Dim, Idx> workDivManual{
-                                                       simdAdjustedExtent,
-                                                       alpaka::Vec<Dim, Idx>::all(1),
-                                                       alpaka::Vec<Dim, Idx>::all(1)};
+            simdAdjustedExtent,
+            alpaka::Vec<Dim, Idx>::all(1),
+            alpaka::Vec<Dim, Idx>::all(1)};
         std::cout << " " << std::endl;
         std::cout << workDivManual << std::endl;
         auto const taskKernel = alpaka::createTaskKernel<Acc>(
@@ -201,6 +247,38 @@ auto example(TAccTag const&, size_t numElements) -> int
         std::cout << "SIMD1toN: SIMD Kernel Execution Time (Grid x Simdsize does not cover full data): "
                   << std::chrono::duration<float>(endT - beginT).count() << "s\n";
     }
+
+    // Measure SIMD Kernel MAtias Kretz
+    {
+        MatiasGrayscaleSIMDKernel<T> simdKernel;
+        BufAcc bufAccARGB(alpaka::allocBuf<T, Idx>(devAcc, extent));
+        alpaka::KernelCfg<Acc> const kernelCfg = {extent, elementsPerThread};
+        Idx const simdAdjustedExtent = numElements / simdWidth; // Adjust extent for SIMD processing
+        alpaka::Vec<Dim, Idx> const extent(simdAdjustedExtent);
+        alpaka::WorkDivMembers<Dim, Idx> workDivManual{
+            simdAdjustedExtent,
+            alpaka::Vec<Dim, Idx>::all(1),
+            alpaka::Vec<Dim, Idx>::all(1)};
+        std::cout << " " << std::endl;
+        std::cout << "simdAdjustedExtent = numElements / simdWidth is equal to " << simdAdjustedExtent << std::endl;
+        std::cout << workDivManual << std::endl;
+        auto const taskKernel = alpaka::createTaskKernel<Acc>(
+            workDivManual,
+            simdKernel,
+            alpaka::getPtrNative(bufAccARGB),
+            alpaka::getPtrNative(bufAccResult),
+            numElements); // Pass size here
+        alpaka::wait(queue);
+        auto const beginT = std::chrono::high_resolution_clock::now();
+        alpaka::enqueue(queue, taskKernel);
+        alpaka::wait(queue);
+        auto const endT = std::chrono::high_resolution_clock::now();
+        // Call the lambda to verify results
+        // verifyResults(bufAccResult);
+        std::cout << "MatiasSIMD1to1: SIMD Kernel Execution Time (GridxSimdsize covers full data): "
+                  << std::chrono::duration<float>(endT - beginT).count() << "s\n";
+    }
+
     // Measure Non-SIMD Kernel
     {
         GrayscaleNonSIMDKernel<T> nonSimdKernel;
@@ -238,7 +316,7 @@ int main(int argc, char* argv[])
     // Default number of elements is 2^25
     size_t numElements = 1 << 25; // 2^25
 
-           // Parse command-line argument
+    // Parse command-line argument
     if(argc > 1)
     {
         std::string arg = argv[1];
@@ -248,12 +326,12 @@ int main(int argc, char* argv[])
             {
                 numElements = std::stoul(arg.substr(12));
             }
-            catch(const std::invalid_argument& e)
+            catch(std::invalid_argument const& e)
             {
                 std::cerr << "Invalid number of elements: " << arg.substr(12) << std::endl;
                 return EXIT_FAILURE;
             }
-            catch(const std::out_of_range& e)
+            catch(std::out_of_range const& e)
             {
                 std::cerr << "Number of elements out of range: " << arg.substr(12) << std::endl;
                 return EXIT_FAILURE;
@@ -269,6 +347,6 @@ int main(int argc, char* argv[])
     std::cout << "Check enabled accelerator tags:" << std::endl;
     alpaka::printTagNames<alpaka::EnabledAccTags>();
 
-           // Use double as the data type
+    // Use double as the data type
     return alpaka::executeForEachAccTag([=](auto const& tag) { return example(tag, numElements); });
 }
