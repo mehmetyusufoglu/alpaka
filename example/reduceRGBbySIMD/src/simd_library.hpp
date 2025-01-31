@@ -1,5 +1,4 @@
 #pragma once
-
 #include <alpaka/alpaka.hpp>
 
 #include <type_traits>
@@ -13,14 +12,13 @@ namespace trait
 
 // CPU specializations --------------------------------------------------------
 #if defined(ALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED)
-#if !BOOST_LANG_CUDA
-#    include <experimental/simd> // Only include for CPU backend
+#    if !BOOST_LANG_CUDA
+#        include <experimental/simd> // Only include for CPU backend
 namespace stdx = std::experimental;
 
 namespace trait
 {
-
-           // CPU specialization
+    // CPU specialization
     template<typename T, typename TDim, typename TIdx>
     class PortableSimd<alpaka::AccCpuSerial<TDim, TIdx>, T, TDim, TIdx>
     {
@@ -32,7 +30,7 @@ namespace trait
             return stdx::simd<T>::size();
         }
 
-               // Constructors
+        // Constructors
         ALPAKA_FN_ACC PortableSimd() : data(0)
         {
         }
@@ -45,7 +43,7 @@ namespace trait
         {
         }
 
-               // Load/store operations
+        // Load/store operations
         ALPAKA_FN_ACC void load(T const* ptr)
         {
             data = stdx::simd<T>(ptr, stdx::element_aligned);
@@ -56,7 +54,7 @@ namespace trait
             data.copy_to(ptr, stdx::element_aligned);
         }
 
-               // Arithmetic operators
+        // Arithmetic operators
         ALPAKA_FN_ACC PortableSimd operator+(PortableSimd const& other) const
         {
             return PortableSimd(data + other.data);
@@ -67,24 +65,49 @@ namespace trait
             return PortableSimd(data * other.data);
         }
 
-               // Summation
+        ALPAKA_FN_ACC PortableSimd operator/(PortableSimd const& other) const
+        {
+            return PortableSimd(data / other.data);
+        }
+
+        // Bitwise shift operators
+        ALPAKA_FN_ACC PortableSimd operator<<(unsigned int shift) const
+        {
+            return PortableSimd(data << shift);
+        }
+
+        ALPAKA_FN_ACC PortableSimd operator>>(unsigned int shift) const
+        {
+            return PortableSimd(data >> shift);
+        }
+
+        // Bitwise AND operator
+        ALPAKA_FN_ACC PortableSimd operator&(PortableSimd const& other) const
+        {
+            return PortableSimd(data & other.data);
+        }
+
+        // Bitwise OR operator
+        ALPAKA_FN_ACC PortableSimd operator|(PortableSimd const& other) const
+        {
+            return PortableSimd(data | other.data);
+        }
+
+        // Summation
         ALPAKA_FN_ACC T sum() const
         {
             return stdx::reduce(data);
         }
     };
-
 } // namespace trait
-#endif
+#    endif
 #endif // CPU specialization
 
 // CUDA specialization --------------------------------------------------------
 #if defined(ALPAKA_ACC_GPU_CUDA_ENABLED)
-#if BOOST_LANG_CUDA
-
+#    if BOOST_LANG_CUDA
 namespace trait
 {
-
     template<typename T, typename TDim, typename TIdx>
     class PortableSimd<alpaka::AccGpuCudaRt<TDim, TIdx>, T, TDim, TIdx>
     {
@@ -124,14 +147,41 @@ namespace trait
             return PortableSimd(data * other.data);
         }
 
+        ALPAKA_FN_ACC PortableSimd operator/(PortableSimd const& other) const
+        {
+            return PortableSimd(data / other.data);
+        }
+
+        // Bitwise shift operators
+        ALPAKA_FN_ACC PortableSimd operator<<(unsigned int shift) const
+        {
+            return PortableSimd(data << shift);
+        }
+
+        ALPAKA_FN_ACC PortableSimd operator>>(unsigned int shift) const
+        {
+            return PortableSimd(data >> shift);
+        }
+
+        // Bitwise AND operator
+        ALPAKA_FN_ACC PortableSimd operator&(PortableSimd const& other) const
+        {
+            return PortableSimd(data & other.data);
+        }
+
+        // Bitwise OR operator
+        ALPAKA_FN_ACC PortableSimd operator|(PortableSimd const& other) const
+        {
+            return PortableSimd(data | other.data);
+        }
+
         ALPAKA_FN_ACC T sum() const
         {
             return data;
         }
     };
-
 } // namespace trait
-#endif
+#    endif
 #endif // CUDA specialization
 
 template<typename T, typename Acc>
