@@ -62,44 +62,6 @@ public:
     }
 };
 
-// MATIAS SIMD Kernel class template
-// SIMD Kernel class template
-template<typename T>
-class MatiasGrayscaleSIMDKernel
-{
-public:
-    ALPAKA_NO_HOST_ACC_WARNING
-    template<typename Acc>
-    ALPAKA_FN_ACC void operator()(Acc const& acc, T* argb, T* grayscale, size_t size) const
-    {
-        constexpr size_t simdWidth = PortableSimd<T, Acc>::size();
-        for(auto i = 0; i < size; i += simdWidth)
-        {
-            PortableSimd<T, Acc> simdA, simdR, simdG, simdB, simdGray, simdARGB;
-            simdARGB.load(&argb[i]); // loads {it[0], it[1], it[2], ...}
-                                     // Broadcast scalars to PortableSimd<T, Acc>
-            PortableSimd<T, Acc> maskFF(0xFFu);
-
-            // Extract components using bitwise operations
-            simdA = simdARGB >> 24; // four uint32 becomes four a s again each of 4 a is uint32
-            simdR = (simdARGB >> 16) & maskFF;
-            simdG = (simdARGB >> 8) & maskFF;
-            simdB = simdARGB & maskFF;
-
-            // Broadcast scalars to PortableSimd<T, Acc>
-            PortableSimd<T, Acc> coeff11(11u);
-            PortableSimd<T, Acc> coeff16(16u);
-            PortableSimd<T, Acc> coeff5(5u);
-            PortableSimd<T, Acc> coeff32(32u);
-
-            // Perform the calculation
-            simdGray = (simdR * coeff11 + simdG * coeff16 + simdB * coeff5) / coeff32;
-            simdARGB = simdGray | (simdGray << 8) | (simdGray << 16) | (simdA << 24);
-            simdARGB.store(&grayscale[i]);
-        }
-    }
-};
-
 // Non-SIMD Kernel class template
 template<typename T>
 class GrayscaleNonSIMDKernel
@@ -120,7 +82,7 @@ template<alpaka::concepts::Tag TAccTag>
 auto example(TAccTag const&, size_t numElements) -> int
 {
     // Select data type
-    using T = uint32_t;
+    using T = float;
 
     using Dim = alpaka::DimInt<1u>;
     using Idx = std::size_t;
@@ -214,7 +176,8 @@ auto example(TAccTag const&, size_t numElements) -> int
         auto const endT = std::chrono::high_resolution_clock::now();
         // Call the lambda to verify results
         verifyResults(bufAccResult);
-        std::cout << "SIMD1to1: SIMD Kernel Execution Time (GridxSimdsize covers full data): "
+        std::cout << "SIMD Kernel Execution Time (GridxSimdsize covers full data)" << std::endl;
+        std::cout << "SIMD1to1: "
                   << std::chrono::duration<float>(endT - beginT).count() << "s\n";
     }
     // Measure SIMD Kernel with different extent
@@ -244,38 +207,8 @@ auto example(TAccTag const&, size_t numElements) -> int
         auto const endT = std::chrono::high_resolution_clock::now();
         // Call the lambda to verify results
         verifyResults(bufAccResult);
-        std::cout << "SIMD1toN: SIMD Kernel Execution Time (Grid x Simdsize does not cover full data): "
-                  << std::chrono::duration<float>(endT - beginT).count() << "s\n";
-    }
-
-    // Measure SIMD Kernel MAtias Kretz
-    {
-        MatiasGrayscaleSIMDKernel<T> simdKernel;
-        BufAcc bufAccARGB(alpaka::allocBuf<T, Idx>(devAcc, extent));
-        alpaka::KernelCfg<Acc> const kernelCfg = {extent, elementsPerThread};
-        Idx const simdAdjustedExtent = numElements / simdWidth; // Adjust extent for SIMD processing
-        alpaka::Vec<Dim, Idx> const extent(simdAdjustedExtent);
-        alpaka::WorkDivMembers<Dim, Idx> workDivManual{
-            simdAdjustedExtent,
-            alpaka::Vec<Dim, Idx>::all(1),
-            alpaka::Vec<Dim, Idx>::all(1)};
-        std::cout << " " << std::endl;
-        std::cout << "simdAdjustedExtent = numElements / simdWidth is equal to " << simdAdjustedExtent << std::endl;
-        std::cout << workDivManual << std::endl;
-        auto const taskKernel = alpaka::createTaskKernel<Acc>(
-            workDivManual,
-            simdKernel,
-            alpaka::getPtrNative(bufAccARGB),
-            alpaka::getPtrNative(bufAccResult),
-            numElements); // Pass size here
-        alpaka::wait(queue);
-        auto const beginT = std::chrono::high_resolution_clock::now();
-        alpaka::enqueue(queue, taskKernel);
-        alpaka::wait(queue);
-        auto const endT = std::chrono::high_resolution_clock::now();
-        // Call the lambda to verify results
-        // verifyResults(bufAccResult);
-        std::cout << "MatiasSIMD1to1: SIMD Kernel Execution Time (GridxSimdsize covers full data): "
+        std::cout << "SIMD Kernel Execution Time (Grid x Simdsize does not cover full data)" << std::endl;
+        std::cout << "SIMD1toN: "
                   << std::chrono::duration<float>(endT - beginT).count() << "s\n";
     }
 
@@ -305,7 +238,8 @@ auto example(TAccTag const&, size_t numElements) -> int
         auto const endT = std::chrono::high_resolution_clock::now();
         // Call the lambda to verify results
         verifyResults(bufAccResult);
-        std::cout << "NonSIMD: Non-SIMD Kernel Execution Time: " << std::chrono::duration<float>(endT - beginT).count()
+        std::cout << "Non-SIMD Kernel Execution Time:" << std::endl;
+        std::cout << "Non-SIMD:" << std::chrono::duration<float>(endT - beginT).count()
                   << "s\n";
     }
     return EXIT_SUCCESS;
@@ -315,7 +249,6 @@ int main(int argc, char* argv[])
 {
     // Default number of elements is 2^25
     size_t numElements = 1 << 25; // 2^25
-
     // Parse command-line argument
     if(argc > 1)
     {
@@ -343,10 +276,28 @@ int main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
     }
-
     std::cout << "Check enabled accelerator tags:" << std::endl;
     alpaka::printTagNames<alpaka::EnabledAccTags>();
 
-    // Use double as the data type
+           // Assert numElements to be a power of 2
+    if ((numElements & (numElements - 1)) != 0)
+    {
+        std::cerr << "Error: numElements must be a power of 2." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+           // Calculate the power of 2
+    size_t powerOf2 = 0;
+    size_t temp = numElements;
+    while (temp >>= 1)
+    {
+        powerOf2++;
+    }
+
+           // Print numElements in format of power of 2
+    std::cout << "numElements: 2^" << powerOf2 << " (" << numElements << ")" << std::endl;
+
+           // Use double as the data type
     return alpaka::executeForEachAccTag([=](auto const& tag) { return example(tag, numElements); });
 }
+

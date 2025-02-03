@@ -28,69 +28,68 @@ namespace trait
         }
 
                // Constructors
-        ALPAKA_FN_ACC PortableSimd() : data(0)
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd() : data(0)
         {
         }
-        ALPAKA_FN_ACC explicit PortableSimd(T scalar) : data(scalar)
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC explicit PortableSimd(T scalar) : data(scalar)
         {
         }
-        ALPAKA_FN_ACC explicit PortableSimd(stdx::simd<T> const& simd) : data(simd)
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC explicit PortableSimd(const stdx::simd<T>& simd) : data(simd)
         {
         }
 
                // Load/store operations
-        ALPAKA_FN_ACC void load(T const* ptr)
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC void load(const T* ptr)
         {
             data = stdx::simd<T>(ptr, stdx::element_aligned);
         }
-        ALPAKA_FN_ACC void store(T* ptr) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC void store(T* ptr) const
         {
             data.copy_to(ptr, stdx::element_aligned);
         }
 
                // Arithmetic operators
-        ALPAKA_FN_ACC PortableSimd operator+(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator+(const PortableSimd& other) const
         {
             return PortableSimd(data + other.data);
         }
-        ALPAKA_FN_ACC PortableSimd operator*(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator*(const PortableSimd& other) const
         {
             return PortableSimd(data * other.data);
         }
-        ALPAKA_FN_ACC PortableSimd operator/(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator/(const PortableSimd& other) const
         {
             return PortableSimd(data / other.data);
         }
 
                // Bitwise shift operators (only for integral types)
         template<typename U = T, std::enable_if_t<std::is_integral_v<U>, int> = 0>
-        ALPAKA_FN_ACC PortableSimd operator<<(unsigned int shift) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator<<(unsigned int shift) const
         {
             return PortableSimd(data << shift);
         }
-
         template<typename U = T, std::enable_if_t<std::is_integral_v<U>, int> = 0>
-        ALPAKA_FN_ACC PortableSimd operator>>(unsigned int shift) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator>>(unsigned int shift) const
         {
             return PortableSimd(data >> shift);
         }
 
                // Bitwise AND operator (only for integral types)
         template<typename U = T, std::enable_if_t<std::is_integral_v<U>, int> = 0>
-        ALPAKA_FN_ACC PortableSimd operator&(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator&(const PortableSimd& other) const
         {
             return PortableSimd(data & other.data);
         }
 
                // Bitwise OR operator (only for integral types)
         template<typename U = T, std::enable_if_t<std::is_integral_v<U>, int> = 0>
-        ALPAKA_FN_ACC PortableSimd operator|(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator|(const PortableSimd& other) const
         {
             return PortableSimd(data | other.data);
         }
 
                // Summation
-        ALPAKA_FN_ACC T sum() const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC T sum() const
         {
             return stdx::reduce(data);
         }
@@ -113,61 +112,60 @@ namespace trait
         {
             return 1;
         }
-        ALPAKA_FN_ACC PortableSimd() : data(0)
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd() : data(0)
         {
         }
-        ALPAKA_FN_ACC explicit PortableSimd(T scalar) : data(scalar)
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC explicit PortableSimd(T scalar) : data(scalar)
         {
         }
-        ALPAKA_FN_ACC void load(T const* ptr)
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC void load(const T* ptr)
         {
             data = *ptr;
         }
-        ALPAKA_FN_ACC void store(T* ptr) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC void store(T* ptr) const
         {
             *ptr = data;
         }
-        ALPAKA_FN_ACC PortableSimd operator+(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator+(const PortableSimd& other) const
         {
             return PortableSimd(data + other.data);
         }
-        ALPAKA_FN_ACC PortableSimd operator*(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator*(const PortableSimd& other) const
         {
             return PortableSimd(data * other.data);
         }
-        ALPAKA_FN_ACC PortableSimd operator/(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator/(const PortableSimd& other) const
         {
             return PortableSimd(data / other.data);
         }
 
                // Bitwise shift operators (only for integral types)
         template<typename U = T, std::enable_if_t<std::is_integral_v<U>, int> = 0>
-        ALPAKA_FN_ACC PortableSimd operator<<(unsigned int shift) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator<<(unsigned int shift) const
         {
             return PortableSimd(data << shift);
         }
-
         template<typename U = T, std::enable_if_t<std::is_integral_v<U>, int> = 0>
-        ALPAKA_FN_ACC PortableSimd operator>>(unsigned int shift) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator>>(unsigned int shift) const
         {
             return PortableSimd(data >> shift);
         }
 
                // Bitwise AND operator (only for integral types)
         template<typename U = T, std::enable_if_t<std::is_integral_v<U>, int> = 0>
-        ALPAKA_FN_ACC PortableSimd operator&(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator&(const PortableSimd& other) const
         {
             return PortableSimd(data & other.data);
         }
 
                // Bitwise OR operator (only for integral types)
         template<typename U = T, std::enable_if_t<std::is_integral_v<U>, int> = 0>
-        ALPAKA_FN_ACC PortableSimd operator|(PortableSimd const& other) const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC PortableSimd operator|(const PortableSimd& other) const
         {
             return PortableSimd(data | other.data);
         }
 
-        ALPAKA_FN_ACC T sum() const
+        ALPAKA_FN_INLINE ALPAKA_FN_ACC T sum() const
         {
             return data;
         }
