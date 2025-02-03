@@ -120,7 +120,7 @@ template<alpaka::concepts::Tag TAccTag>
 auto example(TAccTag const&, size_t numElements) -> int
 {
     // Select data type
-    using T = float;
+    using T = uint32_t;
 
     using Dim = alpaka::DimInt<1u>;
     using Idx = std::size_t;
