@@ -100,10 +100,19 @@ def clone_or_update_alpaka():
 
 def switch_to_alpaka_root():
     """ Ensure the current working directory is the root of the Alpaka repository """
-    if not os.path.exists("alpaka/CMakePresets.json"):
+    current_dir = os.getcwd()
+
+    # Check if the current directory is 'build' and move one level up if needed
+    if os.path.basename(current_dir) == "build":
+        os.chdir("..")  # Move one level up
+        print(f"Moved one level up from 'build' to {os.getcwd()}")
+
+    # Verify the presence of the CMakePresets.json file in the current directory
+    if not os.path.exists("CMakePresets.json"):
         print("Error: Script must be executed from the alpaka root directory.")
         exit(1)
-    os.chdir("alpaka")  # Switch to the alpaka directory
+
+    print(f"Verified current working directory: {os.getcwd()}")
 
 
 def build_and_run_preset(preset):
@@ -119,12 +128,14 @@ def build_and_run_preset(preset):
     ).stdout.decode().strip() + "/include"
     print(f"Using Boost include directory: {boost_path}")
 
+    #TODO: add here preset check!!
     # Verify if nvcc exists
     nvcc_path = run_command("which nvcc", capture_output=True)
     if not nvcc_path:
         print("Error: nvcc not found. Ensure CUDA is loaded properly.")
         return False
 
+    # TODO: add here preset check!!!
     # Verify if hipcc exists
     hipcc_path = run_command("which clang++", capture_output=True)
     if not nvcc_path:
@@ -163,10 +174,12 @@ def build_and_run_preset(preset):
 
 
 if __name__ == "__main__":
-    presets = ["gpu-hip"]  # Replace or add other presets as needed
+    presets = ["gpu-hip", "gpu-cuda-nvcc"]  # Replace or add other presets as needed
 
     # Step 2: Clone or update Alpaka
     clone_or_update_alpaka()
+
+   # TODO: always go a specific directory
 
     # Step 3: Ensure we are in the alpaka root directory
     switch_to_alpaka_root()
