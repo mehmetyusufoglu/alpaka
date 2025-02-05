@@ -47,36 +47,45 @@ def run_command_with_retries(command, retries=3, delay=10):
     return None
 
 
-def setup_environment():
+def setup_environment(preset):
     """ Load necessary modules and set environment variables with retries and timeout """
-    commands = [
-        "spack load cmake@3.25",
-        "spack load /u3oct6d",  # Specific hash for Boost
-        "spack load cuda@12.2",
-        "spack load intel-oneapi-compilers@2023.1.0",
-        "spack load intel-oneapi-dpl@2022.2.0",
-        "module load rocm-5.7.2"
-    ]
+    
+    if preset == "gpu-cuda-nvcc": 
+        commands = [
+            "spack load cmake@3.25",
+            "spack load /u3oct6d",  # Specific hash for Boost
+            "spack load cuda@12.2"
+        ]
+        # Verify if nvcc exists
+        nvcc_path = run_command("which nvcc", capture_output=True)
+        if not nvcc_path:
+            print("Error: nvcc not found. Ensure CUDA is loaded properly.")
+            return False
+
+        # Set LD_LIBRARY_PATH
+        cuda_lib_path = os.path.join(os.path.dirname(nvcc_path), "../lib64")
+        os.environ["LD_LIBRARY_PATH"] = cuda_lib_path + os.pathsep + os.getenv("LD_LIBRARY_PATH", "")
+        print(f"Updated LD_LIBRARY_PATH with CUDA libraries: {cuda_lib_path}")
+    elif preset == "gpu-hip":
+        commands = [
+            "spack load cmake@3.25",
+            "spack load /u3oct6d",  # Specific hash for Boost
+            "module load rocm-5.7.2" ]
+    elif preset == "gpu-sycl-intel":
+        commands = [
+            "spack load cmake@3.25",
+            "spack load /u3oct6d",  # Specific hash for Boost
+            "spack load intel-oneapi-compilers@2023.1.0",
+            "spack load intel-oneapi-dpl@2022.2.0"]
+
     for cmd in commands:
         if run_command_with_retries(cmd, retries=3, delay=10) is None:
             print(f"Failed to execute: {cmd}")
             return False
 
-    # Verify if nvcc exists
-    nvcc_path = run_command("which nvcc", capture_output=True)
-    if not nvcc_path:
-        print("Error: nvcc not found. Ensure CUDA is loaded properly.")
-        return False
-
-    # Set LD_LIBRARY_PATH
-    cuda_lib_path = os.path.join(os.path.dirname(nvcc_path), "../lib64")
-    os.environ["LD_LIBRARY_PATH"] = cuda_lib_path + os.pathsep + os.getenv("LD_LIBRARY_PATH", "")
-    print(f"Updated LD_LIBRARY_PATH with CUDA libraries: {cuda_lib_path}")
-
     # Verify environment
     print("Environment setup completed successfully.")
     return True
-
 
 def clone_or_update_alpaka():
     """ Clone the Alpaka repository or update it if it already exists """
@@ -116,12 +125,19 @@ def build_and_run_preset(preset):
         print("Error: nvcc not found. Ensure CUDA is loaded properly.")
         return False
 
+    # Verify if hipcc exists
+    hipcc_path = run_command("which clang++", capture_output=True)
+    if not nvcc_path:
+        print("Error: hipcc not found. Ensure HIP is loaded properly.")
+        return False
+
+
     # Backend-specific flags
     extra_flags = ""
     if preset == "gpu-cuda-nvcc":
         extra_flags = f"-Dalpaka_ACC_GPU_CUDA_ENABLE=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF -DCMAKE_CUDA_COMPILER={nvcc_path} -DCMAKE_CUDA_ARCHITECTURES=52"
     elif preset == "gpu-hip":
-        extra_flags = "-Dalpaka_ACC_GPU_HIP_ENABLE=ON -Dalpaka_ACC_GPU_HIP_ONLY_MODE=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF"
+        extra_flags = f"-Dalpaka_ACC_GPU_HIP_ENABLE=ON -Dalpaka_ACC_GPU_HIP_ONLY_MODE=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF -DCMAKE_HIP_COMPILER={hipcc_path}"
     elif preset == "gpu-sycl-intel":
         extra_flags = "-Dalpaka_ACC_SYCL_ENABLE=ON -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF"
 
@@ -147,10 +163,7 @@ def build_and_run_preset(preset):
 
 
 if __name__ == "__main__":
-    # Step 1: Setup environment
-    if not setup_environment():
-        print("Failed to set up the environment. Exiting.")
-        exit(1)
+    presets = ["gpu-hip"]  # Replace or add other presets as needed
 
     # Step 2: Clone or update Alpaka
     clone_or_update_alpaka()
@@ -159,8 +172,11 @@ if __name__ == "__main__":
     switch_to_alpaka_root()
 
     # Step 4: Configure, build, and run for the selected presets
-    presets = ["gpu-cuda-nvcc"]  # Replace or add other presets as needed
     for preset in presets:
+        # Step 1: Setup environment
+        if not setup_environment(preset):
+            print("Failed to set up the environment. Exiting.")
+            exit(1)
         print(f"Processing preset: {preset}")
         try:
             build_and_run_preset(preset)
