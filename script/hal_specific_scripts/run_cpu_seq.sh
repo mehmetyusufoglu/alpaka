@@ -24,32 +24,28 @@ clone_or_update_alpaka() {
     fi
 }
 
-# Function to set up the environment for gpu-hip
-setup_environment_gpu_hip() {
-    echo "Setting up environment for gpu-hip..."
+# Function to set up the environment for cpu-serial
+setup_environment_cpu_serial() {
+    echo "Setting up environment for cpu-serial..."
     source /etc/profile.d/modules.sh
     source /opt/spack/share/spack/setup-env.sh
 
     spack load cmake@3.25 || { echo "Failed to load cmake@3.25"; return 1; }
     spack load /u3oct6d || { echo "Failed to load Boost"; return 1; }  # Specific hash for Boost
-    module load rocm-5.7.2 || { echo "Failed to load ROCm-5.7.2"; return 1; }
 
-    which hipcc > /dev/null || { echo "Error: hipcc not found. Ensure HIP is loaded properly."; return 1; }
     echo "Environment setup completed successfully."
 }
 
-# Function to configure, build, and run the benchmark for gpu-hip
-build_and_run_gpu_hip() {
-    local preset="gpu-hip"
+# Function to configure, build, and run the benchmark for cpu-serial
+build_and_run_cpu_serial() {
+    local preset="cpu-serial"
     local num_cores=$(( $(nproc) - 2 ))
     num_cores=$(( num_cores < 1 ? 1 : num_cores ))  # Ensure at least 1 core is used
 
     boost_path=$(spack location -i /u3oct6d)/include
     echo "Using Boost include directory: $boost_path"
 
-    extra_flags="-Dalpaka_ACC_GPU_HIP_ENABLE=ON \
-                 -Dalpaka_ACC_GPU_HIP_ONLY_MODE=ON \
-                 -Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=OFF"
+    extra_flags="-Dalpaka_ACC_CPU_B_SEQ_T_SEQ_ENABLE=ON"
 
     if [ "$(basename "$(pwd)")" == "build" ]; then
         cd .. || exit 1
@@ -101,9 +97,9 @@ if [ "$(basename "$(pwd)")" != "alpaka" ]; then
     exit 1
 fi
 
-if ! setup_environment_gpu_hip; then
+if ! setup_environment_cpu_serial; then
     echo "Failed to set up the environment. Exiting."
     exit 1
 fi
 
-build_and_run_gpu_hip
+build_and_run_cpu_serial

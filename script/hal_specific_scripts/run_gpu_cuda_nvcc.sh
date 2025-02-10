@@ -88,8 +88,8 @@ build_and_run_gpu_cuda_nvcc() {
     datetime_now=$(date +"%Y-%m-%d_%H-%M")
     commit_hash=$(git rev-parse --short=8 HEAD)
     results_file="$results_dir/babelstream-$preset-$datetime_now-$commit_hash.txt"
-    echo "Run $(pwd)/benchmarks/babelstream/babelstream --array-size=33554432 --number-runs=100 > $results_file"
-    ./benchmarks/babelstream/babelstream --array-size=33554432 --number-runs=100 > "$results_file"
+    echo "Run $(pwd)/benchmarks/babelstream/babelstream --array-size=33554432 --number-runs=10 > $results_file"
+    ./benchmarks/babelstream/babelstream --array-size=33554432 --number-runs=10 > "$results_file"
     echo "Results saved to $results_file"
 }
 
