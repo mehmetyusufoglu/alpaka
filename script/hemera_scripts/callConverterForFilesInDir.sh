@@ -13,7 +13,7 @@ if [ ! -d "$DIRECTORY" ]; then
 fi
 
 # Iterate over files starting with "babelstream-gpu" or "babelstream-cpu"
-for file in "$DIRECTORY"/babelstream-{gpu,cpu}*; do
+for file in "$DIRECTORY"/babelstream-{gpu,cpu}*.txt; do
   if [ -f "$file" ]; then
     python3 convertTxtToJson.py "$file"
   fi
