@@ -28,7 +28,7 @@ public:
             simd_data.load(&input[i]);
 
             // Square the values and accumulate
-            SimdType simd_squared = simd_data * simd_data;
+            auto simd_squared = simd_data * simd_data;
             localSum += simd_squared.sum();
         }
 
@@ -58,7 +58,7 @@ public:
             simd_data.load(&input[globalIdx * simdWidth]);
 
             // Square the values and accumulate
-            SimdType simd_squared = simd_data * simd_data;
+            auto simd_squared = simd_data * simd_data;
 
             // Directly accumulate the result using atomicAdd
             alpaka::atomicAdd(acc, result, simd_squared.sum(), alpaka::hierarchy::Blocks{});
