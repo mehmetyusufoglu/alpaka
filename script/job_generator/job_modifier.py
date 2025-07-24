@@ -138,14 +138,14 @@ def add_job_parameters(job_matrix: List[Dict[str, Tuple[str, str]]]):
 
 
 def add_sycl_fpga_jobs(job_matrix: List[Dict[str, Tuple[str, str]]]) -> List[Dict[str, Tuple[str, str]]]:
-    """Duplicate each job with enabled backend ALPAKA_ACC_SYCL_ENABLE and set 
+    """Duplicate each job with enabled backend ALPAKA_ACC_SYCL_ENABLE and set
     the SYCL_DEVICE to SYCL_CPU for the first and SYCL_FPGA for the second job.
     All other jobs get a neutral SYCL_DEVICE entry.
 
     Args:
         job_matrix (List[Dict[str, Tuple[str, str]]]): Job matrix
     Return:
-        (List[Dict[str, Tuple[str, str]]]): Job matrix with duplicated and 
+        (List[Dict[str, Tuple[str, str]]]): Job matrix with duplicated and
         extended jobs
     """
     extended_job_matrix = []
@@ -164,7 +164,5 @@ def add_sycl_fpga_jobs(job_matrix: List[Dict[str, Tuple[str, str]]]) -> List[Dic
         else:
             job[SYCL_DEVICE] = ("", "")
             extended_job_matrix.append(job)
-            
-
 
     return extended_job_matrix

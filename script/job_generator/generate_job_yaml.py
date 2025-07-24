@@ -388,7 +388,7 @@ def job_variables(job: Dict[str, Tuple[str, str]]) -> Dict[str, str]:
         if job[SYCL_DEVICE][NAME] == SYCL_CPU:
             variables["alpaka_SYCL_ONEAPI_CPU"] = "ON"
             variables["alpaka_SYCL_ONEAPI_CPU_ISA"] = "avx2"
-        if job[SYCL_DEVICE][NAME] == SYCL_FPGA: 
+        if job[SYCL_DEVICE][NAME] == SYCL_FPGA:
             variables["alpaka_SYCL_ONEAPI_FPGA"] = "ON"
             variables["alpaka_SYCL_ONEAPI_FPGA_MODE"] = "emulation"
             variables["alpaka_SYCL_ONEAPI_FPGA_BOARD"] = ""

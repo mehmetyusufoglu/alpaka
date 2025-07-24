@@ -22,4 +22,3 @@ endif()
 
 add_subdirectory("babelstream/")
 add_subdirectory("babelstreamSIMD/")
-

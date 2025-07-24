@@ -132,7 +132,7 @@ else
 
     if [ "$alpaka_SYCL_ONEAPI_CPU" == "OFF" ]; then
         echo_yellow "<DEFAULT: SYCL environment variables for enabled backend and disabled CPU device>"
-        export alpaka_SYCL_ONEAPI_CPU_ISA=""        
+        export alpaka_SYCL_ONEAPI_CPU_ISA=""
     fi
     if [ "$alpaka_SYCL_ONEAPI_FPGA" == "OFF" ]; then
         echo_yellow "<DEFAULT: SYCL environment variables for enabled backend and disabled FPGA device>"
