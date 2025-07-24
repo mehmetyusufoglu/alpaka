@@ -1,5 +1,3 @@
-#include "simd_library.hpp"
-
 #include <alpaka/alpaka.hpp>
 #include <alpaka/example/ExecuteForEachAccTag.hpp>
 
@@ -44,15 +42,15 @@ public:
     ALPAKA_FN_ACC void operator()(Acc const& acc, T* r, T* g, T* b, T* grayscale, size_t size) const
     {
         // Use accelerator-specific SIMD constants
-        PortableSimd<T, Acc> const COEFF_R(scalarR);
-        PortableSimd<T, Acc> const COEFF_G(scalarG);
-        PortableSimd<T, Acc> const COEFF_B(scalarB);
+        alpaka::simd::PortableSimd<T, Acc> const COEFF_R(scalarR);
+        alpaka::simd::PortableSimd<T, Acc> const COEFF_G(scalarG);
+        alpaka::simd::PortableSimd<T, Acc> const COEFF_B(scalarB);
         const size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
         const size_t globalSize = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc)[0];
-        constexpr size_t simdWidth = PortableSimd<T, Acc>::size();
+        constexpr size_t simdWidth = alpaka::simd::PortableSimd<T, Acc>::size();
         for(size_t i = globalIdx * simdWidth; i < size; i += globalSize * simdWidth)
         {
-            PortableSimd<T, Acc> simdR, simdG, simdB;
+            alpaka::simd::PortableSimd<T, Acc> simdR, simdG, simdB;
             simdR.load(&r[i]);
             simdG.load(&g[i]);
             simdB.load(&b[i]);
@@ -132,7 +130,7 @@ auto example(TAccTag const&, size_t numElements) -> int
     alpaka::memcpy(queue, bufAccR, bufHostR);
     alpaka::memcpy(queue, bufAccG, bufHostG);
     alpaka::memcpy(queue, bufAccB, bufHostB);
-    constexpr size_t simdWidth = PortableSimd<T, Acc>::size();
+    constexpr size_t simdWidth = alpaka::simd::PortableSimd<T, Acc>::size();
     std::cout << "simdWidth for type " << typeid(T).name() << " is " << simdWidth << std::endl;
     std::cout << "numElements: " << numElements << std::endl;
     // Define the lambda for result verification
@@ -177,8 +175,7 @@ auto example(TAccTag const&, size_t numElements) -> int
         // Call the lambda to verify results
         verifyResults(bufAccResult);
         std::cout << "SIMD Kernel Execution Time (GridxSimdsize covers full data)" << std::endl;
-        std::cout << "SIMD1to1: "
-                  << std::chrono::duration<float>(endT - beginT).count() << "s\n";
+        std::cout << "SIMD1to1: " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
     }
     // Measure SIMD Kernel with different extent
     {
@@ -208,8 +205,7 @@ auto example(TAccTag const&, size_t numElements) -> int
         // Call the lambda to verify results
         verifyResults(bufAccResult);
         std::cout << "SIMD Kernel Execution Time (Grid x Simdsize does not cover full data)" << std::endl;
-        std::cout << "SIMD1toN: "
-                  << std::chrono::duration<float>(endT - beginT).count() << "s\n";
+        std::cout << "SIMD1toN: " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
     }
 
     // Measure Non-SIMD Kernel
@@ -239,8 +235,7 @@ auto example(TAccTag const&, size_t numElements) -> int
         // Call the lambda to verify results
         verifyResults(bufAccResult);
         std::cout << "Non-SIMD Kernel Execution Time:" << std::endl;
-        std::cout << "Non-SIMD:" << std::chrono::duration<float>(endT - beginT).count()
-                  << "s\n";
+        std::cout << "Non-SIMD:" << std::chrono::duration<float>(endT - beginT).count() << "s\n";
     }
     return EXIT_SUCCESS;
 }
@@ -279,25 +274,24 @@ int main(int argc, char* argv[])
     std::cout << "Check enabled accelerator tags:" << std::endl;
     alpaka::printTagNames<alpaka::EnabledAccTags>();
 
-           // Assert numElements to be a power of 2
-    if ((numElements & (numElements - 1)) != 0)
+    // Assert numElements to be a power of 2
+    if((numElements & (numElements - 1)) != 0)
     {
         std::cerr << "Error: numElements must be a power of 2." << std::endl;
         return EXIT_FAILURE;
     }
 
-           // Calculate the power of 2
+    // Calculate the power of 2
     size_t powerOf2 = 0;
     size_t temp = numElements;
-    while (temp >>= 1)
+    while(temp >>= 1)
     {
         powerOf2++;
     }
 
-           // Print numElements in format of power of 2
+    // Print numElements in format of power of 2
     std::cout << "numElements: 2^" << powerOf2 << " (" << numElements << ")" << std::endl;
 
-           // Use double as the data type
+    // Use double as the data type
     return alpaka::executeForEachAccTag([=](auto const& tag) { return example(tag, numElements); });
 }
-
