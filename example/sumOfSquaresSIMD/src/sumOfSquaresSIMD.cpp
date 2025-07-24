@@ -123,7 +123,7 @@ auto example(TAccTag const&) -> int
     auto const devAcc = alpaka::getDevByIdx(platform, 0);
     QueueAcc queue(devAcc);
 
-    Idx const numElements(1024 * 1024); // Reduced from 32M to 1M for faster testing
+    Idx const numElements(32 * 1024 * 1024); // Increased to 32M for more demanding test
     Idx const elementsPerThread(1);
     alpaka::Vec<Dim, Idx> const extent(numElements);
 
@@ -149,10 +149,11 @@ auto example(TAccTag const&) -> int
     BufAcc bufAccA(alpaka::allocBuf<Data, Idx>(devAcc, extent));
 
     // Allocate result buffer on device (single element)
-    using BufResultAcc = alpaka::Buf<DevAcc, Data, alpaka::DimInt<0>, Idx>;
-    using BufResultHost = alpaka::Buf<DevHost, Data, alpaka::DimInt<0>, Idx>;
-    BufResultAcc bufResultAcc(alpaka::allocBuf<Data, Idx>(devAcc, alpaka::Vec<alpaka::DimInt<0>, Idx>{}));
-    BufResultHost bufResultHost(alpaka::allocBuf<Data, Idx>(devHost, alpaka::Vec<alpaka::DimInt<0>, Idx>{}));
+    using Dim = alpaka::DimInt<1u>; // already defined in your example
+    using BufResultAcc = alpaka::Buf<DevAcc, Data, Dim, Idx>;
+    using BufResultHost = alpaka::Buf<DevHost, Data, Dim, Idx>;
+    BufResultAcc bufResultAcc(alpaka::allocBuf<Data, Idx>(devAcc, alpaka::Vec<Dim, Idx>{1}));
+    BufResultHost bufResultHost(alpaka::allocBuf<Data, Idx>(devHost, alpaka::Vec<Dim, Idx>{1}));
     Data* resultPtr = alpaka::getPtrNative(bufResultAcc);
 
     alpaka::memcpy(queue, bufAccA, bufHostA);
@@ -167,7 +168,7 @@ auto example(TAccTag const&) -> int
     {
         // Initialize result to zero on device
         Data zero = 0.0;
-        *alpaka::getPtrNative(bufResultHost) = zero;
+        bufResultHost[0] = zero;
         alpaka::memcpy(queue, bufResultAcc, bufResultHost);
 
         SumOfSquaresNonSIMDKernel nonSimdKernel;
