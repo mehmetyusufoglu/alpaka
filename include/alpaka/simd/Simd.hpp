@@ -10,25 +10,6 @@
 
 #include <type_traits>
 
-// Forward declare accelerator types
-namespace alpaka
-{
-    template<typename TDim, typename TIdx>
-    class AccCpuSerial;
-    template<typename TDim, typename TIdx>
-    class AccCpuThreads;
-    template<typename TDim, typename TIdx>
-    class AccCpuOmp2Blocks;
-    template<typename TDim, typename TIdx>
-    class AccCpuOmp2Threads;
-    template<typename TDim, typename TIdx>
-    class AccCpuTbbBlocks;
-    template<typename TDim, typename TIdx>
-    class AccGpuCudaRt;
-    template<typename TDim, typename TIdx>
-    class AccGpuHipRt;
-} // namespace alpaka
-
 namespace alpaka::simd
 {
     //! Primary template for portable SIMD operations
@@ -39,8 +20,15 @@ namespace alpaka::simd
 } // namespace alpaka::simd
 
 // Include accelerator-specific implementations
-#ifdef ALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED
-#    include "alpaka/simd/detail/SimdCpu.hpp"
+// Conditional compilation based on compiler and enabled accelerators
+#ifdef __NVCC__
+  // NVCC doesn't support std::experimental::simd, use scalar fallback for CPU backends
+#    include "alpaka/simd/detail/SimdCpuFallback.hpp"
+#else
+  // Use actual vector SIMD for CPU backends
+#    ifdef ALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED
+#        include "alpaka/simd/detail/SimdCpu.hpp"
+#    endif
 #endif
 
 #ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
