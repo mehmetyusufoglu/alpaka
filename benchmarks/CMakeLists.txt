@@ -21,4 +21,3 @@ if(NOT BUILD_TESTING)
 endif()
 
 add_subdirectory("babelstream/")
-add_subdirectory("babelstreamSIMD/")
