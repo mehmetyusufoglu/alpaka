@@ -4,11 +4,23 @@
 
 #pragma once
 
-#include "alpaka/acc/AccCpuOmp2Blocks.hpp"
-#include "alpaka/acc/AccCpuOmp2Threads.hpp"
 #include "alpaka/acc/AccCpuSerial.hpp"
-#include "alpaka/acc/AccCpuTbbBlocks.hpp"
-#include "alpaka/acc/AccCpuThreads.hpp"
+
+#if defined(ALPAKA_ACC_CPU_B_SEQ_T_THREADS_ENABLED)
+#    include "alpaka/acc/AccCpuThreads.hpp"
+#endif
+
+#if defined(ALPAKA_ACC_CPU_B_OMP2_T_SEQ_ENABLED)
+#    include "alpaka/acc/AccCpuOmp2Blocks.hpp"
+#endif
+
+#if defined(ALPAKA_ACC_CPU_B_SEQ_T_OMP2_ENABLED)
+#    include "alpaka/acc/AccCpuOmp2Threads.hpp"
+#endif
+
+#if defined(ALPAKA_ACC_CPU_B_TBB_T_SEQ_ENABLED)
+#    include "alpaka/acc/AccCpuTbbBlocks.hpp"
+#endif
 #include "alpaka/simd/Simd.hpp"
 
 #include <experimental/simd>
@@ -119,16 +131,20 @@ namespace alpaka::simd
         }
     };
 
-    // Template specializations for other CPU accelerators
+    // Template specializations for other CPU accelerators, guarded by backend macros
+
+#if defined(ALPAKA_ACC_CPU_B_SEQ_T_THREADS_ENABLED)
     template<typename T, typename TDim, typename TIdx>
     class PortableSimd<T, AccCpuThreads<TDim, TIdx>> : public PortableSimd<T, AccCpuSerial<TDim, TIdx>>
     {
         using Base = PortableSimd<T, AccCpuSerial<TDim, TIdx>>;
 
     public:
-        using Base::Base; // Inherit constructors
+        using Base::Base;
     };
+#endif
 
+#if defined(ALPAKA_ACC_CPU_B_OMP2_T_SEQ_ENABLED)
     template<typename T, typename TDim, typename TIdx>
     class PortableSimd<T, AccCpuOmp2Blocks<TDim, TIdx>> : public PortableSimd<T, AccCpuSerial<TDim, TIdx>>
     {
@@ -137,7 +153,9 @@ namespace alpaka::simd
     public:
         using Base::Base;
     };
+#endif
 
+#if defined(ALPAKA_ACC_CPU_B_SEQ_T_OMP2_ENABLED)
     template<typename T, typename TDim, typename TIdx>
     class PortableSimd<T, AccCpuOmp2Threads<TDim, TIdx>> : public PortableSimd<T, AccCpuSerial<TDim, TIdx>>
     {
@@ -146,7 +164,9 @@ namespace alpaka::simd
     public:
         using Base::Base;
     };
+#endif
 
+#if defined(ALPAKA_ACC_CPU_B_TBB_T_SEQ_ENABLED)
     template<typename T, typename TDim, typename TIdx>
     class PortableSimd<T, AccCpuTbbBlocks<TDim, TIdx>> : public PortableSimd<T, AccCpuSerial<TDim, TIdx>>
     {
@@ -155,5 +175,6 @@ namespace alpaka::simd
     public:
         using Base::Base;
     };
+#endif
 
 } // namespace alpaka::simd
