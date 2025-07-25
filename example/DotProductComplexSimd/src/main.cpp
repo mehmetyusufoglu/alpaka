@@ -10,6 +10,63 @@
 #include <numeric>
 #include <vector>
 
+//! IMPORTANT: SIMD Performance Optimization Requirements
+//! For optimal SIMD performance, compile with -O3 optimization and -march=native to enable auto-vectorization and
+//! intrinsics inlining. Without these flags, SIMD operations may fall back to scalar execution, resulting in poor
+//! performance (1.1-2.3x slower instead of 2-8x faster). For cross-platform builds or specific targeting, use explicit
+//! flags like -mavx2, but -march=native automatically enables all supported instructions on the target CPU.
+
+// Add SIMD capability check function
+void checkSIMDCapabilities()
+{
+    std::cout << "\n=== SIMD Capability Check ===" << std::endl;
+
+#ifdef __AVX512F__
+    std::cout << "AVX-512F: SUPPORTED (SIMD width: float=16, double=8)" << std::endl;
+#else
+    std::cout << "AVX-512F: NOT SUPPORTED" << std::endl;
+#endif
+
+#ifdef __AVX2__
+    std::cout << "AVX2: SUPPORTED (SIMD width: float=8, double=4)" << std::endl;
+#else
+    std::cout << "AVX2: NOT SUPPORTED" << std::endl;
+#endif
+
+#ifdef __AVX__
+    std::cout << "AVX: SUPPORTED (SIMD width: float=8, double=4)" << std::endl;
+#else
+    std::cout << "AVX: NOT SUPPORTED" << std::endl;
+#endif
+
+#ifdef __SSE4_2__
+    std::cout << "SSE4.2: SUPPORTED (SIMD width: float=4, double=2)" << std::endl;
+#else
+    std::cout << "SSE4.2: NOT SUPPORTED" << std::endl;
+#endif
+
+#ifdef __SSE2__
+    std::cout << "SSE2: SUPPORTED (SIMD width: float=4, double=2)" << std::endl;
+#else
+    std::cout << "SSE2: NOT SUPPORTED" << std::endl;
+#endif
+
+    // Check what the compiler is actually using
+    std::cout << "\nCompiler SIMD flags:" << std::endl;
+#if defined(__GNUC__) || defined(__clang__)
+    std::cout << "Compiler: "
+              <<
+#    ifdef __clang__
+        "Clang " << __clang_major__ << "." << __clang_minor__
+#    else
+        "GCC " << __GNUC__ << "." << __GNUC_MINOR__
+#    endif
+              << std::endl;
+#endif
+
+    std::cout << "==============================" << std::endl;
+}
+
 // Complex dot product kernel using SIMD
 template<typename T>
 struct ComplexDotProductSimdKernel
@@ -40,12 +97,6 @@ struct ComplexDotProductSimdKernel
         results[globalThreadIdx] = accumulator.sum();
     }
 };
-
-// // Scalar version with complex operations to prevent auto-vectorization
-// #pragma GCC push_options
-// #pragma GCC optimize("O1")
-// #pragma GCC optimize("no-tree-vectorize")
-// #pragma GCC optimize("no-unroll-loops")
 
 template<typename T>
 struct ComplexDotProductScalarKernel
@@ -82,8 +133,6 @@ struct ComplexDotProductScalarKernel
         results[globalThreadIdx] = sum;
     }
 };
-
-// #pragma GCC pop_options
 
 // Template function to test different data types
 template<typename T, typename Acc, typename Queue>
@@ -188,7 +237,7 @@ void testDataType(Queue& queue, alpaka::Dev<Acc> const& devAcc, std::string cons
     // More lenient comparison due to different algorithms
     bool results_close
         = std::abs(simd_total - scalar_total) / std::max(std::abs(simd_total), std::abs(scalar_total)) < 0.1;
-    std::cout << "Resulting values reasonably close: " << (results_close ? "YES" : "NO") << std::endl;
+    std::cout << "Results reasonably close: " << (results_close ? "YES" : "NO") << std::endl;
 
     // Standardized performance analysis
     double speedup = (double) scalar_time / simd_time;
@@ -225,6 +274,15 @@ auto testComplexDotProduct() -> void
 
     // Test with double
     testDataType<double, Acc>(queue, devAcc, "double");
+
+    // Compare SIMD widths
+    std::cout << "\n=== Data Type Comparison Summary ===" << std::endl;
+    std::cout << "Float SIMD width: " << alpaka::simd::PortableSimd<float, Acc>::size() << " elements" << std::endl;
+    std::cout << "Double SIMD width: " << alpaka::simd::PortableSimd<double, Acc>::size() << " elements" << std::endl;
+    std::cout << "Float SIMD width is "
+              << (alpaka::simd::PortableSimd<float, Acc>::size() / alpaka::simd::PortableSimd<double, Acc>::size())
+              << "x larger than double" << std::endl;
+    std::cout << "=====================================" << std::endl;
 }
 
 auto main() -> int
@@ -233,12 +291,15 @@ auto main() -> int
     {
         std::cout << "=== Alpaka SIMD Performance Examples ===" << std::endl;
 
+        // Check SIMD capabilities first
+        checkSIMDCapabilities();
+
         // Display SIMD capabilities
         using Acc = alpaka::AccCpuSerial<alpaka::DimInt<1>, std::size_t>;
         using SimdFloat = alpaka::simd::PortableSimd<float, Acc>;
         using SimdDouble = alpaka::simd::PortableSimd<double, Acc>;
-        std::cout << "SIMD width for float: " << SimdFloat::size() << std::endl;
-        std::cout << "SIMD width for double: " << SimdDouble::size() << std::endl;
+        std::cout << "\nAlpaka detected SIMD width for float: " << SimdFloat::size() << std::endl;
+        std::cout << "Alpaka detected SIMD width for double: " << SimdDouble::size() << std::endl;
 
         // Run performance test
         testComplexDotProduct();

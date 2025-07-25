@@ -5,6 +5,13 @@
 #include <iostream>
 #include <random>
 
+//! IMPORTANT: SIMD Performance Optimization Requirements
+//! For optimal SIMD performance, compile with -O3 optimization and -march=native to enable auto-vectorization and
+//! intrinsics inlining. Without these flags, SIMD operations may fall back to scalar execution, resulting in poor
+//! performance. For cross-platform builds or specific targeting, use explicit flags like -mavx2, but -march=native
+//! automatically enables all supported instructions on the target CPU.
+
+
 // SIMD Kernel - One SIMD operation per thread
 template<typename T>
 class SumOfSquaresSIMDKernel1Thread1SIMD
