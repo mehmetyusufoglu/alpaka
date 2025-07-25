@@ -11,9 +11,10 @@
 #include <vector>
 
 // Complex dot product kernel using SIMD
+template<typename T>
 struct ComplexDotProductSimdKernel
 {
-    template<typename TAcc, typename T>
+    template<typename TAcc>
     ALPAKA_FN_ACC auto operator()(TAcc const& acc, T const* a, T const* b, T* results, std::size_t n) const -> void
     {
         auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
@@ -40,15 +41,16 @@ struct ComplexDotProductSimdKernel
     }
 };
 
-// Scalar version with complex operations to prevent auto-vectorization
-#pragma GCC push_options
-#pragma GCC optimize("O1")
-#pragma GCC optimize("no-tree-vectorize")
-#pragma GCC optimize("no-unroll-loops")
+// // Scalar version with complex operations to prevent auto-vectorization
+// #pragma GCC push_options
+// #pragma GCC optimize("O1")
+// #pragma GCC optimize("no-tree-vectorize")
+// #pragma GCC optimize("no-unroll-loops")
 
+template<typename T>
 struct ComplexDotProductScalarKernel
 {
-    template<typename TAcc, typename T>
+    template<typename TAcc>
     ALPAKA_FN_ACC auto operator()(TAcc const& acc, T const* a, T const* b, T* results, std::size_t n) const -> void
     {
         auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
@@ -81,24 +83,19 @@ struct ComplexDotProductScalarKernel
     }
 };
 
-#pragma GCC pop_options
+// #pragma GCC pop_options
 
-// Performance test
-auto testComplexDotProduct() -> void
+// Template function to test different data types
+template<typename T, typename Acc, typename Queue>
+void testDataType(Queue& queue, alpaka::Dev<Acc> const& devAcc, std::string const& typeName)
 {
-    std::cout << "\n=== Testing SIMD vs Scalar Complex Dot Product ===" << std::endl;
-
     using Dim = alpaka::DimInt<1>;
     using Idx = std::size_t;
-    using Acc = alpaka::AccCpuSerial<Dim, Idx>;
-    using Queue = alpaka::QueueCpuBlocking;
 
-    auto const platform = alpaka::Platform<Acc>{};
-    auto const devAcc = alpaka::getDevByIdx(platform, 0u);
-    Queue queue(devAcc);
+    std::cout << "\n=== Testing " << typeName << " ===" << std::endl;
 
     // Get SIMD width and calculate perfect multiple dataset size
-    using SimdType = alpaka::simd::PortableSimd<float, Acc>;
+    using SimdType = alpaka::simd::PortableSimd<T, Acc>;
     constexpr auto simdWidth = SimdType::size();
     constexpr std::size_t numThreads = 1; // Use single thread for AccCpuSerial
 
@@ -112,22 +109,22 @@ auto testComplexDotProduct() -> void
     std::cout << "Dataset size: " << n << " elements (perfect multiple of " << simdWidth << ")" << std::endl;
     std::cout << "Elements per thread: " << n / numThreads << std::endl;
 
-    std::vector<float> a(n), b(n);
+    std::vector<T> a(n), b(n);
 
     // Initialize with non-trivial patterns
     for(std::size_t i = 0; i < n; ++i)
     {
-        a[i] = static_cast<float>(i % 1000) / 1000.0f + 1.0f;
-        b[i] = static_cast<float>((i * 7) % 1000) / 1000.0f + 1.0f;
+        a[i] = static_cast<T>(i % 1000) / T{1000.0} + T{1.0};
+        b[i] = static_cast<T>((i * 7) % 1000) / T{1000.0} + T{1.0};
     }
 
     // Allocate buffers
     alpaka::Vec<Dim, Idx> const extentData(static_cast<Idx>(n));
     alpaka::Vec<Dim, Idx> const extentResults(static_cast<Idx>(numThreads));
-    auto bufA = alpaka::allocBuf<float, Idx>(devAcc, extentData);
-    auto bufB = alpaka::allocBuf<float, Idx>(devAcc, extentData);
-    auto bufResultsSimd = alpaka::allocBuf<float, Idx>(devAcc, extentResults);
-    auto bufResultsScalar = alpaka::allocBuf<float, Idx>(devAcc, extentResults);
+    auto bufA = alpaka::allocBuf<T, Idx>(devAcc, extentData);
+    auto bufB = alpaka::allocBuf<T, Idx>(devAcc, extentData);
+    auto bufResultsSimd = alpaka::allocBuf<T, Idx>(devAcc, extentResults);
+    auto bufResultsScalar = alpaka::allocBuf<T, Idx>(devAcc, extentResults);
 
     alpaka::memcpy(queue, bufA, a);
     alpaka::memcpy(queue, bufB, b);
@@ -143,7 +140,7 @@ auto testComplexDotProduct() -> void
         alpaka::exec<Acc>(
             queue,
             workDiv,
-            ComplexDotProductSimdKernel{},
+            ComplexDotProductSimdKernel<T>{},
             alpaka::getPtrNative(bufA),
             alpaka::getPtrNative(bufB),
             alpaka::getPtrNative(bufResultsSimd),
@@ -162,7 +159,7 @@ auto testComplexDotProduct() -> void
         alpaka::exec<Acc>(
             queue,
             workDiv,
-            ComplexDotProductScalarKernel{},
+            ComplexDotProductScalarKernel<T>{},
             alpaka::getPtrNative(bufA),
             alpaka::getPtrNative(bufB),
             alpaka::getPtrNative(bufResultsScalar),
@@ -174,13 +171,13 @@ auto testComplexDotProduct() -> void
     auto scalar_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / num_runs;
 
     // Get results
-    std::vector<float> simd_result(numThreads);
-    std::vector<float> scalar_result(numThreads);
+    std::vector<T> simd_result(numThreads);
+    std::vector<T> scalar_result(numThreads);
     alpaka::memcpy(queue, simd_result, bufResultsSimd);
     alpaka::memcpy(queue, scalar_result, bufResultsScalar);
 
-    float simd_total = std::accumulate(simd_result.begin(), simd_result.end(), 0.0f);
-    float scalar_total = std::accumulate(scalar_result.begin(), scalar_result.end(), 0.0f);
+    T simd_total = std::accumulate(simd_result.begin(), simd_result.end(), T{0});
+    T scalar_total = std::accumulate(scalar_result.begin(), scalar_result.end(), T{0});
 
     std::cout << "Dataset size: " << n << " elements" << std::endl;
     std::cout << "SIMD time: " << simd_time << " µs" << std::endl;
@@ -188,6 +185,10 @@ auto testComplexDotProduct() -> void
     std::cout << "SIMD speedup: " << (double) scalar_time / simd_time << "x" << std::endl;
     std::cout << "SIMD result: " << simd_total << std::endl;
     std::cout << "Scalar result: " << scalar_total << std::endl;
+    // More lenient comparison due to different algorithms
+    bool results_close
+        = std::abs(simd_total - scalar_total) / std::max(std::abs(simd_total), std::abs(scalar_total)) < 0.1;
+    std::cout << "Resulting values reasonably close: " << (results_close ? "YES" : "NO") << std::endl;
 
     // Standardized performance analysis
     double speedup = (double) scalar_time / simd_time;
@@ -203,11 +204,27 @@ auto testComplexDotProduct() -> void
         std::cout << "SIMD is " << (1.0 / speedup) << "x SLOWER than scalar" << std::endl;
     }
     std::cout << "==================================" << std::endl;
+}
 
-    // More lenient comparison due to different algorithms
-    bool results_close
-        = std::abs(simd_total - scalar_total) / std::max(std::abs(simd_total), std::abs(scalar_total)) < 0.1;
-    std::cout << "Results reasonably close: " << (results_close ? "YES" : "NO") << std::endl;
+// Performance test
+auto testComplexDotProduct() -> void
+{
+    std::cout << "\n=== Testing SIMD vs Scalar Complex Dot Product ===" << std::endl;
+
+    using Dim = alpaka::DimInt<1>;
+    using Idx = std::size_t;
+    using Acc = alpaka::AccCpuSerial<Dim, Idx>;
+    using Queue = alpaka::QueueCpuBlocking;
+
+    auto const platform = alpaka::Platform<Acc>{};
+    auto const devAcc = alpaka::getDevByIdx(platform, 0u);
+    Queue queue(devAcc);
+
+    // Test with float
+    testDataType<float, Acc>(queue, devAcc, "float");
+
+    // Test with double
+    testDataType<double, Acc>(queue, devAcc, "double");
 }
 
 auto main() -> int
@@ -219,7 +236,9 @@ auto main() -> int
         // Display SIMD capabilities
         using Acc = alpaka::AccCpuSerial<alpaka::DimInt<1>, std::size_t>;
         using SimdFloat = alpaka::simd::PortableSimd<float, Acc>;
+        using SimdDouble = alpaka::simd::PortableSimd<double, Acc>;
         std::cout << "SIMD width for float: " << SimdFloat::size() << std::endl;
+        std::cout << "SIMD width for double: " << SimdDouble::size() << std::endl;
 
         // Run performance test
         testComplexDotProduct();
