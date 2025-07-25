@@ -5,7 +5,7 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-set(_TARGET_NAME DotProductComplexSimd)
+set(_TARGET_NAME dotProductComplexSimd)
 
 append_recursive_files_add_to_src_group("src" "src" "cpp" _FILES_SOURCE)
 

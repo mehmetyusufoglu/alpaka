@@ -8,8 +8,7 @@
 #include <type_traits>
 
 //! IMPORTANT: SIMD Performance Optimization Requirements
-//! For optimal SIMD performance, compile with -O3 optimization and -march=native to enable auto-vectorization and
-//! intrinsics inlining. Without these flags, SIMD operations may fall back to scalar execution, resulting in poor
+//! For optimal SIMD performance, compile with -O3 optimization and -march=native.
 //! performance (1.1-2.3x slower instead of 2-8x faster). For cross-platform builds or specific targeting, use explicit
 //! flags like -mavx2, but -march=native automatically enables all supported instructions on the target CPU.
 

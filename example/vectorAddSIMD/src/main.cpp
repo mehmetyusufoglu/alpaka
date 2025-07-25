@@ -7,7 +7,10 @@
 #include <iostream>
 #include <vector>
 
-// Example kernel using SIMD operations
+// This example demonstrates how to use SIMD operations in Alpaka for vector addition.
+// Important: The example does not not create any performance advantages over (compared to) scalar or Non-Simd
+// operations, but illustrates how to use SIMD in Alpaka. For optimal SIMD performance, compile with -O3 optimization
+// and -march=native. Example kernel using SIMD operations
 struct VectorAddSimdKernel
 {
     template<typename TAcc, typename T>
