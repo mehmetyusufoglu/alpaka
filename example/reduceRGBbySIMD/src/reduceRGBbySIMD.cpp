@@ -133,6 +133,12 @@ auto example(TAccTag const&, size_t numElements) -> int
     constexpr size_t simdWidth = alpaka::simd::PortableSimd<T, Acc>::size();
     std::cout << "simdWidth for type " << typeid(T).name() << " is " << simdWidth << std::endl;
     std::cout << "numElements: " << numElements << std::endl;
+
+    // Variables to store timing for comparison
+    float simd1to1Time = 0.0f;
+    float simd1toNTime = 0.0f;
+    float nonSimdTime = 0.0f;
+
     // Define the lambda for result verification
     auto verifyResults = [&referenceResult, &numElements, &devHost, &queue](BufAcc const& computed)
     {
@@ -176,6 +182,9 @@ auto example(TAccTag const&, size_t numElements) -> int
         verifyResults(bufAccResult);
         std::cout << "SIMD Kernel Execution Time (GridxSimdsize covers full data)" << std::endl;
         std::cout << "SIMD1to1: " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
+
+        // Store SIMD1to1 time for comparison
+        simd1to1Time = std::chrono::duration<float>(endT - beginT).count();
     }
     // Measure SIMD Kernel with different extent
     {
@@ -206,6 +215,9 @@ auto example(TAccTag const&, size_t numElements) -> int
         verifyResults(bufAccResult);
         std::cout << "SIMD Kernel Execution Time (Grid x Simdsize does not cover full data)" << std::endl;
         std::cout << "SIMD1toN: " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
+
+        // Store SIMD1toN time for comparison
+        simd1toNTime = std::chrono::duration<float>(endT - beginT).count();
     }
 
     // Measure Non-SIMD Kernel
@@ -236,6 +248,38 @@ auto example(TAccTag const&, size_t numElements) -> int
         verifyResults(bufAccResult);
         std::cout << "Non-SIMD Kernel Execution Time:" << std::endl;
         std::cout << "Non-SIMD:" << std::chrono::duration<float>(endT - beginT).count() << "s\n";
+
+        // Store non-SIMD time and calculate improvement ratios
+        nonSimdTime = std::chrono::duration<float>(endT - beginT).count();
+
+        // Print SIMD improvement ratios
+        std::cout << "\n=== SIMD Performance Analysis ===" << std::endl;
+        std::cout << "SIMD1to1 Time: " << simd1to1Time << "s" << std::endl;
+        std::cout << "SIMD1toN Time: " << simd1toNTime << "s" << std::endl;
+        std::cout << "Non-SIMD Time: " << nonSimdTime << "s" << std::endl;
+
+        // Compare SIMD1to1 vs Non-SIMD
+        float improvementRatio1 = nonSimdTime / simd1to1Time;
+        if(improvementRatio1 > 1.0f)
+        {
+            std::cout << "SIMD1to1 is " << improvementRatio1 << "x FASTER than Non-SIMD" << std::endl;
+        }
+        else
+        {
+            std::cout << "SIMD1to1 is " << (1.0f / improvementRatio1) << "x SLOWER than Non-SIMD" << std::endl;
+        }
+
+        // Compare SIMD1toN vs Non-SIMD
+        float improvementRatio2 = nonSimdTime / simd1toNTime;
+        if(improvementRatio2 > 1.0f)
+        {
+            std::cout << "SIMD1toN is " << improvementRatio2 << "x FASTER than Non-SIMD" << std::endl;
+        }
+        else
+        {
+            std::cout << "SIMD1toN is " << (1.0f / improvementRatio2) << "x SLOWER than Non-SIMD" << std::endl;
+        }
+        std::cout << "==================================" << std::endl;
     }
     return EXIT_SUCCESS;
 }
