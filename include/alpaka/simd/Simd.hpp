@@ -8,14 +8,55 @@
 #include "alpaka/core/Common.hpp"
 #include "alpaka/core/Vectorize.hpp"
 
+#include <cstdint>
 #include <type_traits>
 
 namespace alpaka::simd
 {
+    // Forward declare mask type
+    template<typename T, typename TAcc>
+    class SimdMask;
+
     //! Primary template for portable SIMD operations
     //! Provides a unified interface for SIMD operations across different accelerators
     template<typename T, typename TAcc>
-    class PortableSimd;
+    class alignas(32) PortableSimd
+    {
+    public:
+        using value_type = T;
+        using mask_type = SimdMask<T, TAcc>;
+
+        // Standard operations are implemented in backend-specific files
+
+        // Horizontal operations
+        ALPAKA_FN_ACC T hadd() const; // Horizontal add (sum of all elements)
+        ALPAKA_FN_ACC T hmin() const; // Horizontal minimum
+        ALPAKA_FN_ACC T hmax() const; // Horizontal maximum
+        ALPAKA_FN_ACC T hmul() const; // Horizontal multiply
+
+        // Masked operations
+        ALPAKA_FN_ACC void masked_store(T* ptr, mask_type const& mask) const;
+        ALPAKA_FN_ACC static PortableSimd masked_load(T const* ptr, mask_type const& mask);
+
+        // Gather/Scatter operations
+        template<typename IndexType>
+        ALPAKA_FN_ACC static PortableSimd gather(T const* base, IndexType const* indices);
+        template<typename IndexType>
+        ALPAKA_FN_ACC void scatter(T* base, IndexType const* indices) const;
+
+        // Memory prefetch hint
+        ALPAKA_FN_ACC static void prefetch(T const* ptr, int hint = 0);
+
+        // Comparison operations returning masks
+        ALPAKA_FN_ACC mask_type operator<(PortableSimd const& other) const;
+        ALPAKA_FN_ACC mask_type operator>(PortableSimd const& other) const;
+        ALPAKA_FN_ACC mask_type operator<=(PortableSimd const& other) const;
+        ALPAKA_FN_ACC mask_type operator>=(PortableSimd const& other) const;
+
+        // Load/Store with alignment hints
+        ALPAKA_FN_ACC void load_aligned(T const* ptr);
+        ALPAKA_FN_ACC void store_aligned(T* ptr) const;
+    };
 
 } // namespace alpaka::simd
 
