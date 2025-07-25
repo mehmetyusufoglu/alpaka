@@ -28,51 +28,35 @@ namespace alpaka::simd::detail
         static constexpr std::size_t width = 8;
     };
 
-    template<>
-    struct simd_native_type<std::int32_t>
+    template<typename T>
+    struct simd_native_type_integral
     {
         using type = __m512i;
-        static constexpr std::size_t width = 16;
+        static constexpr std::size_t width = 64 / sizeof(T);
     };
 
     template<>
-    struct simd_native_type<std::int64_t>
+    struct simd_native_type<std::int32_t> : simd_native_type_integral<std::int32_t>
     {
-        using type = __m512i;
-        static constexpr std::size_t width = 8;
+    };
+
+    template<>
+    struct simd_native_type<std::int64_t> : simd_native_type_integral<std::int64_t>
+    {
     };
 
 #elif defined(__AVX2__)
     template<typename T>
-    struct simd_native_type;
-
-    template<>
-    struct simd_native_type<float>
+    struct simd_native_type
     {
-        using type = __m256;
-        static constexpr std::size_t width = 8;
+        using type = std::conditional_t<
+            std::is_same_v<T, float>,
+            __m256,
+            std::conditional_t<std::is_same_v<T, double>, __m256d, __m256i>>;
+        static constexpr std::size_t width = sizeof(__m256i) / sizeof(T);
     };
-
-    template<>
-    struct simd_native_type<double>
-    {
-        using type = __m256d;
-        static constexpr std::size_t width = 4;
-    };
-
-    template<>
-    struct simd_native_type<std::int32_t>
-    {
-        using type = __m256i;
-        static constexpr std::size_t width = 8;
-    };
-
-    template<>
-    struct simd_native_type<std::int64_t>
-    {
-        using type = __m256i;
-        static constexpr std::size_t width = 4;
-    };
+#else
+#    error "No supported SIMD instruction set available (requires at least AVX2)"
 #endif
 
     template<typename T, typename TAcc>
@@ -195,7 +179,7 @@ namespace alpaka::simd::detail
                 return _mm_cvtsi128_si64(sum) + _mm_cvtsi128_si64(_mm_srli_si128(sum, 8));
             }
 #endif
-            return T{};
+            static_assert(false, "No SIMD support available");
         }
 
     private:
