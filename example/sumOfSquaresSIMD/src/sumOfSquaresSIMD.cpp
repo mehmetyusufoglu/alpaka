@@ -247,17 +247,6 @@ auto example(TAccTag const&) -> int
     // Test with float
     testDataType<float, Acc, QueueAcc, DevAcc, DevHost>(queue, devAcc, devHost, "float");
 
-    // Compare results
-    std::cout << "\n=== Data Type Comparison Summary ===" << std::endl;
-    std::cout << "Double precision: SIMD width = " << alpaka::simd::PortableSimd<double, Acc>::size() << " elements"
-              << std::endl;
-    std::cout << "Single precision: SIMD width = " << alpaka::simd::PortableSimd<float, Acc>::size() << " elements"
-              << std::endl;
-    std::cout << "Float SIMD width is "
-              << (alpaka::simd::PortableSimd<float, Acc>::size() / alpaka::simd::PortableSimd<double, Acc>::size())
-              << "x larger than double" << std::endl;
-    std::cout << "=====================================" << std::endl;
-
     return EXIT_SUCCESS;
 }
 
