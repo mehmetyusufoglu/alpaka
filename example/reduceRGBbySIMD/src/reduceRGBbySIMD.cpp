@@ -42,9 +42,9 @@ public:
     ALPAKA_FN_ACC void operator()(Acc const& acc, T* r, T* g, T* b, T* grayscale, size_t size) const
     {
         // Use accelerator-specific SIMD constants
-        alpaka::simd::PortableSimd<T, Acc> const COEFF_R(scalarR);
-        alpaka::simd::PortableSimd<T, Acc> const COEFF_G(scalarG);
-        alpaka::simd::PortableSimd<T, Acc> const COEFF_B(scalarB);
+        alpaka::simd::PortableSimd<T, Acc> const COEFF_R(static_cast<T>(scalarR));
+        alpaka::simd::PortableSimd<T, Acc> const COEFF_G(static_cast<T>(scalarG));
+        alpaka::simd::PortableSimd<T, Acc> const COEFF_B(static_cast<T>(scalarB));
         const size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
         const size_t globalSize = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc)[0];
         constexpr size_t simdWidth = alpaka::simd::PortableSimd<T, Acc>::size();
@@ -71,40 +71,34 @@ public:
     {
         size_t globalIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0];
         // Scalar computation for grayscale
-        result[globalIdx] = scalarR * inputR[globalIdx] + scalarG * inputG[globalIdx] + scalarB * inputB[globalIdx];
+        result[globalIdx] = static_cast<T>(scalarR) * inputR[globalIdx] + static_cast<T>(scalarG) * inputG[globalIdx]
+                            + static_cast<T>(scalarB) * inputB[globalIdx];
     }
 };
 
-// Example function to compare SIMD and non-SIMD kernels
-template<alpaka::concepts::Tag TAccTag>
-auto example(TAccTag const&, size_t numElements) -> int
+// Template function to test different data types
+template<typename T, typename Acc, typename Queue>
+void testDataType(Queue& queue, alpaka::Dev<Acc> const& devAcc, size_t numElements, std::string const& typeName)
 {
-    // Select data type
-    using T = float;
-
     using Dim = alpaka::DimInt<1u>;
     using Idx = std::size_t;
-    using Acc = alpaka::TagToAcc<TAccTag, Dim, Idx>;
-    using DevAcc = alpaka::Dev<Acc>;
 
-    std::cout << "Data type is: " << typeid(T).name() << std::endl;
-    std::cout << "Using alpaka accelerator: " << alpaka::getAccName<Acc>() << std::endl;
-    using QueueProperty = alpaka::Blocking;
-    using QueueAcc = alpaka::Queue<Acc, QueueProperty>;
-    auto const platform = alpaka::Platform<Acc>{};
-    auto const devAcc = alpaka::getDevByIdx(platform, 0);
-    QueueAcc queue(devAcc);
+    std::cout << "\n=== Testing with " << typeName << " ===" << std::endl;
+
     Idx const elementsPerThread = 1;
     alpaka::Vec<Dim, Idx> const extent(numElements);
+
     using DevHost = alpaka::DevCpu;
     auto const platformHost = alpaka::PlatformCpu{};
     auto const devHost = alpaka::getDevByIdx(platformHost, 0);
+
     using BufHost = alpaka::Buf<DevHost, T, Dim, Idx>;
     BufHost bufHostR(alpaka::allocBuf<T, Idx>(devHost, extent));
     BufHost bufHostG(alpaka::allocBuf<T, Idx>(devHost, extent));
     BufHost bufHostB(alpaka::allocBuf<T, Idx>(devHost, extent));
     BufHost bufHostResult(alpaka::allocBuf<T, Idx>(devHost, extent));
     std::vector<T> referenceResult(numElements);
+
     // Fill input data with random RGB values
     std::random_device rd;
     std::default_random_engine eng{rd()};
@@ -120,23 +114,26 @@ auto example(TAccTag const&, size_t numElements) -> int
         bufHostR[i] = dist(eng);
         bufHostG[i] = dist(eng);
         bufHostB[i] = dist(eng);
-        referenceResult.at(i) = scalarR * bufHostR[i] + scalarG * bufHostG[i] + scalarB * bufHostB[i];
+        referenceResult.at(i) = static_cast<T>(scalarR) * bufHostR[i] + static_cast<T>(scalarG) * bufHostG[i]
+                                + static_cast<T>(scalarB) * bufHostB[i];
     }
-    using BufAcc = alpaka::Buf<DevAcc, T, Dim, Idx>;
+
+    using BufAcc = alpaka::Buf<alpaka::Dev<Acc>, T, Dim, Idx>;
     BufAcc bufAccR(alpaka::allocBuf<T, Idx>(devAcc, extent));
     BufAcc bufAccG(alpaka::allocBuf<T, Idx>(devAcc, extent));
     BufAcc bufAccB(alpaka::allocBuf<T, Idx>(devAcc, extent));
     BufAcc bufAccResult(alpaka::allocBuf<T, Idx>(devAcc, extent));
+
     alpaka::memcpy(queue, bufAccR, bufHostR);
     alpaka::memcpy(queue, bufAccG, bufHostG);
     alpaka::memcpy(queue, bufAccB, bufHostB);
+
     constexpr size_t simdWidth = alpaka::simd::PortableSimd<T, Acc>::size();
-    std::cout << "simdWidth for type " << typeid(T).name() << " is " << simdWidth << std::endl;
-    std::cout << "numElements: " << numElements << std::endl;
+    std::cout << "SIMD width for " << typeName << " is " << simdWidth << std::endl;
+    std::cout << "Number of elements: " << numElements << std::endl;
 
     // Variables to store timing for comparison
-    float simd1to1Time = 0.0f;
-    float simd1toNTime = 0.0f;
+    float simdTime = 0.0f;
     float nonSimdTime = 0.0f;
 
     // Define the lambda for result verification
@@ -152,19 +149,19 @@ auto example(TAccTag const&, size_t numElements) -> int
             }
         }
     };
+
     // Measure SIMD Kernel
     {
         GrayscaleSIMDKernel<T> simdKernel;
-        alpaka::KernelCfg<Acc> const kernelCfg = {extent, elementsPerThread};
-        Idx const simdAdjustedExtent = numElements / simdWidth; // Adjust extent for SIMD processing
-        alpaka::Vec<Dim, Idx> const extent(simdAdjustedExtent);
+        Idx const simdAdjustedExtent = numElements / simdWidth;
+        alpaka::Vec<Dim, Idx> const extentSIMD(simdAdjustedExtent);
         alpaka::WorkDivMembers<Dim, Idx> workDivManual{
             simdAdjustedExtent,
             alpaka::Vec<Dim, Idx>::all(1),
             alpaka::Vec<Dim, Idx>::all(1)};
-        std::cout << " " << std::endl;
-        std::cout << "simdAdjustedExtent = numElements / simdWidth is equal to " << simdAdjustedExtent << std::endl;
-        std::cout << workDivManual << std::endl;
+
+        std::cout << "SIMD adjusted extent = " << simdAdjustedExtent << std::endl;
+
         auto const taskKernel = alpaka::createTaskKernel<Acc>(
             workDivManual,
             simdKernel,
@@ -172,52 +169,17 @@ auto example(TAccTag const&, size_t numElements) -> int
             alpaka::getPtrNative(bufAccG),
             alpaka::getPtrNative(bufAccB),
             alpaka::getPtrNative(bufAccResult),
-            numElements); // Pass size here
+            numElements);
+
         alpaka::wait(queue);
         auto const beginT = std::chrono::high_resolution_clock::now();
         alpaka::enqueue(queue, taskKernel);
         alpaka::wait(queue);
         auto const endT = std::chrono::high_resolution_clock::now();
-        // Call the lambda to verify results
-        verifyResults(bufAccResult);
-        std::cout << "SIMD Kernel Execution Time (GridxSimdsize covers full data)" << std::endl;
-        std::cout << "SIMD1to1: " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
 
-        // Store SIMD1to1 time for comparison
-        simd1to1Time = std::chrono::duration<float>(endT - beginT).count();
-    }
-    // Measure SIMD Kernel with different extent
-    {
-        GrayscaleSIMDKernel<T> simdKernel;
-        alpaka::KernelCfg<Acc> const kernelCfg = {extent, elementsPerThread};
-        Idx const simdAdjustedExtent = numElements / 32; // Adjust extent for SIMD processing
-        alpaka::Vec<Dim, Idx> const extent(simdAdjustedExtent);
-        alpaka::WorkDivMembers<Dim, Idx> workDivManual{
-            simdAdjustedExtent,
-            alpaka::Vec<Dim, Idx>::all(1),
-            alpaka::Vec<Dim, Idx>::all(1)};
-        std::cout << " " << std::endl;
-        std::cout << workDivManual << std::endl;
-        auto const taskKernel = alpaka::createTaskKernel<Acc>(
-            workDivManual,
-            simdKernel,
-            alpaka::getPtrNative(bufAccR),
-            alpaka::getPtrNative(bufAccG),
-            alpaka::getPtrNative(bufAccB),
-            alpaka::getPtrNative(bufAccResult),
-            numElements); // Pass size here
-        alpaka::wait(queue);
-        auto const beginT = std::chrono::high_resolution_clock::now();
-        alpaka::enqueue(queue, taskKernel);
-        alpaka::wait(queue);
-        auto const endT = std::chrono::high_resolution_clock::now();
-        // Call the lambda to verify results
         verifyResults(bufAccResult);
-        std::cout << "SIMD Kernel Execution Time (Grid x Simdsize does not cover full data)" << std::endl;
-        std::cout << "SIMD1toN: " << std::chrono::duration<float>(endT - beginT).count() << "s\n";
-
-        // Store SIMD1toN time for comparison
-        simd1toNTime = std::chrono::duration<float>(endT - beginT).count();
+        simdTime = std::chrono::duration<float>(endT - beginT).count();
+        std::cout << "SIMD Kernel Time: " << simdTime << "s\n";
     }
 
     // Measure Non-SIMD Kernel
@@ -232,6 +194,7 @@ auto example(TAccTag const&, size_t numElements) -> int
             alpaka::getPtrNative(bufAccG),
             alpaka::getPtrNative(bufAccB),
             alpaka::getPtrNative(bufAccResult));
+
         auto const taskKernel = alpaka::createTaskKernel<Acc>(
             workDiv,
             nonSimdKernel,
@@ -239,48 +202,58 @@ auto example(TAccTag const&, size_t numElements) -> int
             alpaka::getPtrNative(bufAccG),
             alpaka::getPtrNative(bufAccB),
             alpaka::getPtrNative(bufAccResult));
+
         alpaka::wait(queue);
         auto const beginT = std::chrono::high_resolution_clock::now();
         alpaka::enqueue(queue, taskKernel);
         alpaka::wait(queue);
         auto const endT = std::chrono::high_resolution_clock::now();
-        // Call the lambda to verify results
+
         verifyResults(bufAccResult);
-        std::cout << "Non-SIMD Kernel Execution Time:" << std::endl;
-        std::cout << "Non-SIMD:" << std::chrono::duration<float>(endT - beginT).count() << "s\n";
-
-        // Store non-SIMD time and calculate improvement ratios
         nonSimdTime = std::chrono::duration<float>(endT - beginT).count();
-
-        // Print SIMD improvement ratios
-        std::cout << "\n=== SIMD Performance Analysis ===" << std::endl;
-        std::cout << "SIMD1to1 Time: " << simd1to1Time << "s" << std::endl;
-        std::cout << "SIMD1toN Time: " << simd1toNTime << "s" << std::endl;
-        std::cout << "Non-SIMD Time: " << nonSimdTime << "s" << std::endl;
-
-        // Compare SIMD1to1 vs Non-SIMD
-        float improvementRatio1 = nonSimdTime / simd1to1Time;
-        if(improvementRatio1 > 1.0f)
-        {
-            std::cout << "SIMD1to1 is " << improvementRatio1 << "x FASTER than Non-SIMD" << std::endl;
-        }
-        else
-        {
-            std::cout << "SIMD1to1 is " << (1.0f / improvementRatio1) << "x SLOWER than Non-SIMD" << std::endl;
-        }
-
-        // Compare SIMD1toN vs Non-SIMD
-        float improvementRatio2 = nonSimdTime / simd1toNTime;
-        if(improvementRatio2 > 1.0f)
-        {
-            std::cout << "SIMD1toN is " << improvementRatio2 << "x FASTER than Non-SIMD" << std::endl;
-        }
-        else
-        {
-            std::cout << "SIMD1toN is " << (1.0f / improvementRatio2) << "x SLOWER than Non-SIMD" << std::endl;
-        }
-        std::cout << "==================================" << std::endl;
+        std::cout << "Non-SIMD Kernel Time: " << nonSimdTime << "s\n";
     }
+
+    // Print SIMD improvement ratios
+    std::cout << "\n=== SIMD Performance Analysis ===" << std::endl;
+    std::cout << "SIMD Time: " << simdTime << "s" << std::endl;
+    std::cout << "Non-SIMD Time: " << nonSimdTime << "s" << std::endl;
+
+    float improvementRatio = nonSimdTime / simdTime;
+    if(improvementRatio > 1.0f)
+    {
+        std::cout << "SIMD is " << improvementRatio << "x FASTER than Non-SIMD" << std::endl;
+    }
+    else
+    {
+        std::cout << "SIMD is " << (1.0f / improvementRatio) << "x SLOWER than Non-SIMD" << std::endl;
+    }
+    std::cout << "==================================" << std::endl;
+}
+
+// Example function to compare SIMD and non-SIMD kernels
+template<alpaka::concepts::Tag TAccTag>
+auto example(TAccTag const&, size_t numElements) -> int
+{
+    using Dim = alpaka::DimInt<1u>;
+    using Idx = std::size_t;
+    using Acc = alpaka::TagToAcc<TAccTag, Dim, Idx>;
+    using DevAcc = alpaka::Dev<Acc>;
+
+    std::cout << "Using alpaka accelerator: " << alpaka::getAccName<Acc>() << std::endl;
+
+    using QueueProperty = alpaka::Blocking;
+    using QueueAcc = alpaka::Queue<Acc, QueueProperty>;
+    auto const platform = alpaka::Platform<Acc>{};
+    auto const devAcc = alpaka::getDevByIdx(platform, 0);
+    QueueAcc queue(devAcc);
+
+    // Test with float
+    testDataType<float, Acc>(queue, devAcc, numElements, "float");
+
+    // Test with double
+    testDataType<double, Acc>(queue, devAcc, numElements, "double");
+
     return EXIT_SUCCESS;
 }
 
@@ -336,6 +309,5 @@ int main(int argc, char* argv[])
     // Print numElements in format of power of 2
     std::cout << "numElements: 2^" << powerOf2 << " (" << numElements << ")" << std::endl;
 
-    // Use double as the data type
     return alpaka::executeForEachAccTag([=](auto const& tag) { return example(tag, numElements); });
 }
