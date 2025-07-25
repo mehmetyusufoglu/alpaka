@@ -164,6 +164,11 @@ auto example(TAccTag const&) -> int
     std::cout << "simdWidth for type " << typeid(Data).name() << " is " << simdWidth << std::endl;
     std::cout << "numElements: " << numElements << std::endl;
 
+    // Variables to store timing for comparison
+    double nonSimdTime = 0.0;
+    double simd1Thread1SimdTime = 0.0;
+    double simdKernelTime = 0.0;
+
     // Measure Non-SIMD Kernel
     {
         // Initialize result to zero on device
@@ -204,6 +209,9 @@ auto example(TAccTag const&) -> int
         std::cout << "Non-SIMD Kernel Execution Time: " << std::chrono::duration<double>(endT - beginT).count()
                   << "s\n";
         std::cout << "Non-SIMD Kernel Result: " << result << "\n";
+
+        // Store non-SIMD time for comparison
+        nonSimdTime = std::chrono::duration<double>(endT - beginT).count();
     }
 
     // Measure SumOfSquaresSIMDKernel1Thread1SIMD Kernel
@@ -245,6 +253,9 @@ auto example(TAccTag const&) -> int
         std::cout << "SIMD Kernel Execution Time (Full Data coverd by simd-size*GridSize): "
                   << std::chrono::duration<double>(endT - beginT).count() << "s\n";
         std::cout << "SIMD Kernel Result: " << result << "\n";
+
+        // Store SIMD 1Thread1SIMD time for comparison
+        simd1Thread1SimdTime = std::chrono::duration<double>(endT - beginT).count();
     }
 
 
@@ -287,10 +298,41 @@ auto example(TAccTag const&) -> int
         std::cout << "SIMD Kernel Execution Time (Not full data covered by simdsize*gridsize): "
                   << std::chrono::duration<double>(endT - beginT).count() << "s\n";
         std::cout << "SIMD Kernel Result: " << result << "\n";
+
+        // Store SIMD kernel time for comparison
+        simdKernelTime = std::chrono::duration<double>(endT - beginT).count();
     }
 
-
     std::cout << "Reference Sum of Squares: " << referenceSum << "\n";
+
+    // Print SIMD improvement ratios
+    std::cout << "\n=== SIMD Performance Analysis ===" << std::endl;
+    std::cout << "Non-SIMD Time: " << nonSimdTime << "s" << std::endl;
+    std::cout << "SIMD 1Thread1SIMD Time: " << simd1Thread1SimdTime << "s" << std::endl;
+    std::cout << "SIMD Kernel Time: " << simdKernelTime << "s" << std::endl;
+
+    // Compare SIMD 1Thread1SIMD vs Non-SIMD
+    double improvementRatio1 = nonSimdTime / simd1Thread1SimdTime;
+    if(improvementRatio1 > 1.0)
+    {
+        std::cout << "SIMD 1Thread1SIMD is " << improvementRatio1 << "x FASTER than Non-SIMD" << std::endl;
+    }
+    else
+    {
+        std::cout << "SIMD 1Thread1SIMD is " << (1.0 / improvementRatio1) << "x SLOWER than Non-SIMD" << std::endl;
+    }
+
+    // Compare SIMD Kernel vs Non-SIMD
+    double improvementRatio2 = nonSimdTime / simdKernelTime;
+    if(improvementRatio2 > 1.0)
+    {
+        std::cout << "SIMD Kernel is " << improvementRatio2 << "x FASTER than Non-SIMD" << std::endl;
+    }
+    else
+    {
+        std::cout << "SIMD Kernel is " << (1.0 / improvementRatio2) << "x SLOWER than Non-SIMD" << std::endl;
+    }
+    std::cout << "==================================" << std::endl;
 
     return EXIT_SUCCESS;
 }
